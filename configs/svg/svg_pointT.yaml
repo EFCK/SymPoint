@@ -76,7 +76,7 @@ data:
 
   test:
     type: 'svg'
-    data_root: 'dataset/test/jsons'
+    data_root: 'dataset/json/test'
     repeat: 1
     split: "test"
     data_norm: "mean"

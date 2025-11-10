@@ -74,7 +74,7 @@ class SVGDataset(Dataset):
         return len(self.data_list)*self.repeat
     
     
-    def load(self, json_file, idx ):
+    def load(self, json_file, idx):
         
         json_file = json_file.replace(".svg",".json")
         data = json.load(open(json_file))
