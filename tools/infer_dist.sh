@@ -4,4 +4,4 @@ export PYTHONPATH=./
 GPUS=1
 workdir=.
 OMP_NUM_THREADS=$GPUS torchrun --nproc_per_node=$GPUS --master_port=$((RANDOM + 10000)) tools/inference.py \
-	 $workdir/configs/svg/svg_pointT.yaml  $workdir/configs/svg/best.pth --out ./results/poilabs --datadir dataset/json/poilabs
+	 $workdir/configs/svg/svg_pointT.yaml  $workdir/configs/svg/best.pth --out ./results/demov2_wo_layer --datadir dataset/json/demov2_wo_layer	
