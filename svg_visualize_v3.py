@@ -78,8 +78,18 @@ def visualSVG_with_ids(parsing_list, sem_labels, ins_labels, out_path, cvt_color
             ins_label = ins_labels[ind]
             
             # Update semantic and instance IDs in SVG attributes
-            line["semanticId"] = str(sem_label + 1)  # +1 because SVG uses 1-based indexing
-            line["instanceId"] = str(ins_label)
+            if sem_label == 35:
+                if "semanticId" in line:
+                    line.pop("semanticId")
+                if "instanceId" in line:
+                    line.pop("instanceId")
+            else:
+                line["semanticId"] = str(int(sem_label) + 1)  # Convert to 1-based index
+            
+                if sem_label in [30, 31, 32, 33, 34]:  # Stuff classes
+                    line["instanceId"] = "-1"
+                else:
+                    line["instanceId"] = str(int(ins_label))
             
             # Set color based on semantic prediction
             color = SVG_CATEGORIES[sem_label]["color"]
