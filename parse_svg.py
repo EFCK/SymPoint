@@ -37,6 +37,7 @@ def parse_color_to_rgb(color_str):
         if len(rgb_values) >= 3:
             return list(map(int, rgb_values[:3]))
     
+
     # Named color mapping
     color_map = {
         'black': [0, 0, 0],
@@ -63,7 +64,7 @@ def parse_color_to_rgb(color_str):
     return [0, 0, 0]
 
 
-def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, instanceIds, strokes, layerIds, widths, inst_infos, counts):
+def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements):
     """
     Parse individual SVG elements (path, circle, ellipse).
     Handles both elements with and without instanceId/semanticId attributes.
@@ -89,8 +90,17 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
             raise RuntimeError("Parse path failed! {}, {}".format(element.attrib.get('d', 'N/A'), e))
         
         path_type = path_repre[0].__class__.__name__
-        commands.append(COMMANDS.index(path_type))
+
+        # detect and skip degenerate paths
         length = path_repre.length()
+        if length < 1e-10:
+            counts['c2'] += 1
+            degenerate_elements.append(element)
+            return counts
+
+
+
+        commands.append(COMMANDS.index(path_type))
         lengths.append(length)
         layerIds.append(layer_id)
         
@@ -102,20 +112,12 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
 
 
         # Handle degenerate paths (zero-length) by checking path length first
-        try:
-            path_length = path_repre.length()
-            if path_length < 1e-10:
-                counts['c2'] += 1
-                # Degenerate path - use start point for all samples
-                start_point = path_repre[0].start
-                for _ in inds:
-                    arg.extend([start_point.real, start_point.imag])
-            else:
+        try:        
+            # Normal path - sample points
+            for ind in inds:
+                point = path_repre.point(ind)
                 counts['c1'] += 1
-                # Normal path - sample points
-                for ind in inds:
-                    point = path_repre.point(ind)
-                    arg.extend([point.real, point.imag])
+                arg.extend([point.real, point.imag])
 
         except (RuntimeError, ValueError) as e:
             # If point sampling fails, use the start point
@@ -197,34 +199,34 @@ def parse_svg(svg_file):
     layerIds = []
     widths = []
     inst_infos = defaultdict(list)
+    counts = {'c1': 0, 'c2': 0, 'e1': 0, 'e2': 0}
+    degenerate_elements = []
     
     # Check if SVG has <g> tags
     groups = list(root.iter(ns + 'g'))
 
-    counts = {'c1': 0, 'c2': 0, 'e1': 0, 'e2': 0}
-    
+    # Original format: paths are inside <g> tags
     if len(groups) > 0:
-        # Original format: paths are inside <g> tags
         id = 0
         for g in root.iter(ns + 'g'):
             id += 1
             # path
             for path in g.iter(ns + 'path'):
                 counts = parse_element(path, ns, id, commands, args, lengths, semanticIds, 
-                             instanceIds, strokes, layerIds, widths, inst_infos, counts)
+                             instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
             
             # circle
             for circle in g.iter(ns + 'circle'):
                 counts = parse_element(circle, ns, id, commands, args, lengths, semanticIds, 
-                             instanceIds, strokes, layerIds, widths, inst_infos, counts)
+                             instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
             
             # ellipse
             for ellipse in g.iter(ns + 'ellipse'):
                 counts = parse_element(ellipse, ns, id, commands, args, lengths, semanticIds, 
-                             instanceIds, strokes, layerIds, widths, inst_infos, counts)
+                             instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
 
+    # paths are directly under root (no <g> tags)
     else:
-        # paths are directly under root (no <g> tags)
         # To maintain consistent ordering, collect all elements with their document order
         id = 1
         all_elements = []
@@ -237,7 +239,7 @@ def parse_svg(svg_file):
         # Process in document order (maintains spatial coherence like g-tag version)
         for _, element in all_elements:
             counts = parse_element(element, ns, id, commands, args, lengths, semanticIds, 
-                         instanceIds, strokes, layerIds, widths, inst_infos, counts)
+                         instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
 
     # this approach is not good, because it will break the spatial coherence
     # else:
@@ -258,6 +260,10 @@ def parse_svg(svg_file):
     #                      instanceIds, strokes, layerIds, widths, inst_infos)
     
     print(f"normal path: {counts['c1']}, degenerate path: {counts['c2']}, error1: {counts['e1']}, 0 used: {counts['e2']}")
+    
+    if len(degenerate_elements) > 0:
+        remove_svg_elements(root, degenerate_elements)
+    
     # Validate results
     if len(args) == 0:
         # Empty SVG - return minimal structure
@@ -274,7 +280,7 @@ def parse_svg(svg_file):
             "rgb": [],
             "layerIds": [],
             "widths": []
-        }
+        }, tree
     
     assert len(args) == len(lengths), 'error'
     assert len(semanticIds) == len(instanceIds), 'error'
@@ -306,22 +312,41 @@ def parse_svg(svg_file):
         "layerIds": layerIds,
         "widths": widths
     }
-    return json_dicts
+    return json_dicts, tree
+
+def remove_svg_elements(root, elements):
+    """
+    Remove specified elements from the SVG root.
+    """
+    remove_counter = 0
+
+    if not elements:
+        return
+    
+    parent_map = {child: parent for parent in root.iter() for child in parent}
+    for element in elements:
+        parent = parent_map.get(element)
+        if parent is not None:
+            parent.remove(element)
+            remove_counter += 1
+    
+    print(f"Removed {remove_counter} degenerate elements from SVG.")
+
 
 def save_json(json_dicts,out_json):
     json.dump(json_dicts, open(out_json, 'w'), indent=4)
     
 def process(svg_file):
     
-    json_dicts = parse_svg(svg_file)
+    json_dicts, tree = parse_svg(svg_file)
     filename = svg_file.split('/')[-1].replace('.svg','.json').replace(" ","_")
     out_json = os.path.join(save_dir,filename)
     save_json(json_dicts,out_json)
 
-    # Copy the original SVG file to dataset/svg/{split}/ directory
+    # save the modified svg file
     svg_filename = svg_file.split("/")[-1].replace(" ","_")
     svg_out_path = os.path.join(svg_save_dir, svg_filename)
-    shutil.copy2(svg_file, svg_out_path)
+    tree.write(svg_out_path, encoding='utf-8', xml_declaration=True)
 
 
 if __name__=="__main__":
