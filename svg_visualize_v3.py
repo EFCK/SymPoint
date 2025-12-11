@@ -13,6 +13,27 @@ from PIL import Image, ImageDraw, ImageFont
 
 Image.MAX_IMAGE_PIXELS = None
 
+UNNECESSARY_CLASSES = {
+    35: "background",
+
+    3: "folding_door",
+    5: "rolling_door",
+
+    7: "bay_window",
+    8: "blind_window",
+    9: "opening symbol",
+    
+    11: "bed",
+    14: "TV_cabinet",
+    15: "Wardrobe",
+    17: "gas_stove",
+    19: "refrigerator",
+    20: "airconditioner",
+    21: "bath",
+    22: "bath_tub",
+    23: "washing_machine",
+}
+
 def svg_reader(svg_path):
     svg_list = list()
     try:
@@ -78,18 +99,21 @@ def visualSVG_with_ids(parsing_list, sem_labels, ins_labels, out_path, cvt_color
             ins_label = ins_labels[ind]
             
             # Update semantic and instance IDs in SVG attributes
-            if sem_label == 35:
+            # remove unnecessary classes
+
+            if sem_label in UNNECESSARY_CLASSES.keys():
+                sem_label = 35  # Set to background class
                 if "semanticId" in line:
                     line.pop("semanticId")
                 if "instanceId" in line:
                     line.pop("instanceId")
             else:
                 line["semanticId"] = str(int(sem_label) + 1)  # Convert to 1-based index
-            
                 if sem_label in [30, 31, 32, 33, 34]:  # Stuff classes
                     line["instanceId"] = "-1"
                 else:
                     line["instanceId"] = str(int(ins_label))
+
             
             # Set color based on semantic prediction
             color = SVG_CATEGORIES[sem_label]["color"]
@@ -314,7 +338,7 @@ if __name__ == "__main__":
             sem_out = np.argmax(semantic_bits, axis=1).astype(np.int64)
             if len(ins_outs) > 0:
                 # Process each detected instance
-                for instance in ins_outs:
+                for instance in ins_outs:   
                     masks, labels = instance["masks"],instance["labels"]
                     scores = instance["scores"]
                     if scores<0.1: continue
