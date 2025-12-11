@@ -84,6 +84,8 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
     
     # Parse path elements
     if element.tag == ns + 'path':
+        
+        # decide if its a path or arc
         try:
             path_repre = parse_path(element.attrib['d'])
         except Exception as e:
@@ -91,14 +93,25 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
         
         path_type = path_repre[0].__class__.__name__
 
+        # get the original type if exists (for flattining purpose)
+        original_type = element.attrib.get("originalType",None) if "originalType" in element.attrib else None
+        if original_type is not None:
+            if original_type == "segment":
+                path_type = "Line"
+            elif original_type == "arc":
+                path_type = "Arc"
+            elif original_type == "circle":
+                path_type = "circle"
+            elif original_type == "ellipse":
+                path_type = "ellipse"
+        
+
         # detect and skip degenerate paths
         length = path_repre.length()
         if length < 1e-10:
             counts['c2'] += 1
             degenerate_elements.append(element)
             return counts
-
-
 
         commands.append(COMMANDS.index(path_type))
         lengths.append(length)
@@ -109,7 +122,6 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
         
         inds = [0, 1/3, 2/3, 1.0]
         arg = []
-
 
         # Handle degenerate paths (zero-length) by checking path length first
         try:        
