@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: svg_visualize_v3 debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",          // veya tam path: "${workspaceFolder}/svg_visualize_v3.py"
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",   // isteğe bağlı ama genelde iyi olur
+            "args": [
+                "--res_file", "./results/demov2/"
+                // diğer flag'leri de ekleyebilirsin, örnek:
+                // "--generate_png",
+                // "--semantic",
+                // "--out_dir", "./output_dir/"
+            ]
+        }
+    ]
+}
