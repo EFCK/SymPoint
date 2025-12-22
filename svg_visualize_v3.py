@@ -286,8 +286,12 @@ def get_path(svg_lists):
 
 if __name__ == "__main__":
     import argparse
+    import yaml
+    from munch import Munch
     
     parser = argparse.ArgumentParser(description='SVG Visualization with Model Predictions')
+    parser.add_argument('--config', type=str, default="configs/svg/svg_pointT.yaml",
+                        help='Path to config file')
     parser.add_argument('--res_file', type=str, default="./results/floorplancad/",
                         help='Path to the results file')
     parser.add_argument('--generate_png', action='store_true', default=False,
@@ -298,10 +302,23 @@ if __name__ == "__main__":
                         help='Path to the output directory')
     args = parser.parse_args()
     
-    instance_eval = InstanceEval(num_classes=35,
-                                 ignore_label=35,gpu_num=1)
+    # Load config file
+    cfg_txt = open(args.config, "r").read()
+    cfg = Munch.fromDict(yaml.safe_load(cfg_txt))
+    min_score = cfg.model.get('test_object_score', 0.05)
+    eval_iou_threshold = cfg.model.get('eval_iou_threshold', 0.5)
+    instance_eval = InstanceEval(
+        num_classes=35,
+        ignore_label=list(UNNECESSARY_CLASSES.keys()),
+        gpu_num=1,
+        min_obj_score=min_score,  # Same threshold used in model inference
+        iou_threshold=eval_iou_threshold
+    )
     logger = get_root_logger()
     
+    logger.info(f"Using config: {args.config}")
+    logger.info(f"Score threshold (test_object_score): {min_score}")
+    logger.info(f"IoU threshold (eval_iou_threshold): {eval_iou_threshold}")
 
     res_file = Path(args.res_file) / "model_output.npy"
     if args.out_dir:
@@ -341,7 +358,7 @@ if __name__ == "__main__":
                 for instance in ins_outs:   
                     masks, labels = instance["masks"],instance["labels"]
                     scores = instance["scores"]
-                    if scores<0.1: continue
+                    if scores<min_score: continue
                     sem_out[masks] = labels
                     ins_out[masks] = len(det["instances"])  # Assign instance ID
                     det["instances"].append({"masks":masks, "labels":sem_out[masks][0],"scores":scores})        
@@ -352,7 +369,7 @@ if __name__ == "__main__":
                 for instance in ins_outs:
                     masks, labels = instance["masks"],instance["labels"]
                     scores = instance["scores"]
-                    if scores<0.1: continue
+                    if scores<min_score: continue
                     sem_out[masks] = labels
                     ins_out[masks] = len(det["instances"])  # Assign instance ID
                     det["instances"].append({"masks":masks, "labels":labels,"scores":scores}) 
