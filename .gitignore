@@ -3,3 +3,10 @@
 /results
 *.zip
 *.pth
+/work_dirs
+/dataset_old
+/results_old
+/svgnet/evaluation/__pycache__
+svgnet/evaluation/__pycache__/point_wise_eval.cpython-38.pyc
+*.pyc
+*.pyc
