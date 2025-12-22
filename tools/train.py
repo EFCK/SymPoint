@@ -11,6 +11,7 @@ import os
 import os.path as osp
 import shutil
 import time
+import wandb
 
 from svgnet.data import build_dataloader, build_dataset
 from svgnet.model.svgnet import SVGNet as svgnet
@@ -109,12 +110,20 @@ def train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger,
     for k, v in meter_dict.items():
         writer.add_scalar(f"train/{k}", v.avg, epoch)
     checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq)
+    return loss
 
 
 def validate(epoch, model, optimizer, val_loader, cfg, logger, writer):
     logger.info("Validation")
-    sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=35,gpu_num=dist.get_world_size())
-    instance_eval = InstanceEval(num_classes=cfg.model.semantic_classes,ignore_label=35,gpu_num=dist.get_world_size())
+    sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.ignore_labels,gpu_num=dist.get_world_size())
+
+    instance_eval = InstanceEval(
+        num_classes=cfg.model.semantic_classes,
+        ignore_label=cfg.ignore_labels,
+        gpu_num=dist.get_world_size(),
+        min_obj_score=cfg.model.get('test_object_score', 0.1),  
+        iou_threshold=cfg.model.get('eval_iou_threshold', 0.5)
+    )
     meter_dict = {}
     torch.cuda.empty_cache()
     with torch.no_grad():
@@ -159,8 +168,10 @@ def validate(epoch, model, optimizer, val_loader, cfg, logger, writer):
         checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq, best=True)
         logger.info(f"New best sPQ {best_metric:.3f} at {epoch} epoch" )
     
+    return miou, acc, sPQ, sRQ, sSQ
        
-
+def is_main_process():
+    return (not dist.is_available()) or (not dist.is_initialized()) or dist.get_rank() == 0
 
 def main():
     args = get_args()
@@ -179,6 +190,10 @@ def main():
     else:
         dataset_name = cfg.data.train.type
         cfg.work_dir = osp.join("./work_dirs", dataset_name, osp.splitext(osp.basename(args.config))[0], args.exp_name)
+
+    if is_main_process():
+        wandb.init(project="SymPoint", name=args.exp_name
+        ,config={"dataset": dataset_name, epochs: cfg.epochs, "batch_size": cfg.dataloader.train.batch_size,})
 
     os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
     timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
@@ -229,6 +244,9 @@ def main():
     train_set = build_dataset(cfg.data.train, logger)
     val_set = build_dataset(cfg.data.test, logger)
 
+    print("Train samples:", len(train_set))
+    print("Val samples:", len(val_set))
+
     train_loader = build_dataloader(args,train_set, training=True, dist=args.dist, **cfg.dataloader.train)
     val_loader = build_dataloader(args,val_set, training=False, dist=True, **cfg.dataloader.test)
 
@@ -249,6 +267,7 @@ def main():
     if args.resume:
         logger.info(f"Resume from {args.resume}")
         start_epoch = load_checkpoint(args.resume, logger, model, optimizer=optimizer)
+        start_epoch = 0 # start from 0 for now
     elif cfg.pretrain:
         logger.info(f"Load pretrain from {cfg.pretrain}")
         load_checkpoint(cfg.pretrain, logger, model)
@@ -262,9 +281,15 @@ def main():
     # train and val
     logger.info("Training")
     for epoch in range(start_epoch, cfg.epochs + 1):
-        train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger, writer)
+        loss = train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger, writer)
         if scheduler is not None:scheduler.step()
-        validate(epoch, model, optimizer, val_loader, cfg, logger, writer)
+        miou, acc, sPQ, sRQ, sSQ = validate(epoch, model, optimizer, val_loader, cfg, logger, writer)
+        wandb.log({"train/loss": loss,
+                   "val/mIoU": miou,
+                   "val/Acc": acc,
+                   "val/sPQ": sPQ,
+                   "val/sRQ": sRQ,
+                   "val/sSQ": sSQ,}, step=epoch)
         writer.flush()
 
     logger.info(f"Finish!!! Model at: {cfg.work_dir}")
