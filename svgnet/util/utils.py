@@ -169,8 +169,10 @@ def load_checkpoint(checkpoint, logger, model, optimizer=None, strict=False):
 
     # load optimizer
     if optimizer is not None:
-        assert "optimizer" in state_dict
-        optimizer.load_state_dict(state_dict["optimizer"])
+        if "optimizer" in state_dict:
+            optimizer.load_state_dict(state_dict["optimizer"])
+        else:
+            logger.info("Optimizer state not found in checkpoint. Starting with fresh optimizer state.")
 
     if "epoch" in state_dict:
         epoch = state_dict["epoch"]
