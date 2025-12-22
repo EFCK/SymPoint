@@ -67,8 +67,15 @@ def main():
     has_gt_data = any(has_ground_truth(f) for f in data_list)
     
     if has_gt_data:
-        sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.model.semantic_classes,gpu_num=1)
-        instance_eval = InstanceEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.model.semantic_classes,gpu_num=1)
+        sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.model.ignore_labels,gpu_num=1)
+        # Use test_object_score for evaluation to match model's inference threshold
+        instance_eval = InstanceEval(
+            num_classes=cfg.model.semantic_classes,
+            ignore_label=cfg.model.ignore_labels,
+            gpu_num=1,
+            min_obj_score=cfg.model.get('test_object_score', 0.1),  # Same threshold used in model inference
+            iou_threshold=cfg.model.get('eval_iou_threshold', 0.5)
+        )
     else:
         logger.info("No ground truth labels found - skipping evaluation metrics")
     
@@ -99,6 +106,7 @@ def main():
                 if has_gt_data and has_ground_truth(svg_file):
                     sem_gts = res["semantic_labels"].cpu().numpy()
                     sem_point_eval.update(sem_preds, sem_gts)
+                    
                     instance_eval.update(
                         res["instances"],
                         res["targets"],
