@@ -21,7 +21,10 @@ class SVGNet(nn.Module):
         self.backbone = PointT(cfg)
         self.decoder = Decoder(cfg,self.backbone.planes)
         self.num_classes = cfg.semantic_classes
-        self.test_object_score = 0.1
+        # Unified score threshold used for model inference, evaluation, and visualization
+        self.test_object_score = cfg.get('test_object_score', 0.1)
+        self.overlap_threshold = cfg.get('overlap_threshold', 0.8)
+        self.mask_threshold = cfg.get('mask_threshold', 0.5)
         
     def train(self, mode=True):
         super().train(mode)
@@ -134,12 +137,16 @@ class SVGNet(nn.Module):
         semseg = torch.einsum("bqc,bqg->bgc", mask_cls, mask_pred)
         return semseg[0]
 
-    def instance_inference(self,mask_cls,mask_pred,overlap_threshold=0.8):
+    def instance_inference(self,mask_cls,mask_pred,overlap_threshold=None):
+        
+        if overlap_threshold is None:
+            overlap_threshold = self.overlap_threshold
         
         mask_cls,mask_pred = mask_cls[0],mask_pred[0]
         scores, labels = F.softmax(mask_cls, dim=-1).max(-1)
         mask_pred = mask_pred.sigmoid()
 
+        # Filter out low-confidence predictions using test_object_score threshold
         keep = labels.ne(self.num_classes) & (scores >= self.test_object_score)
         cur_scores = scores[keep]
         cur_classes = labels[keep]
@@ -162,8 +169,8 @@ class SVGNet(nn.Module):
             pred_class = cur_classes[k].item()
             pred_score = cur_scores[k].item()
             mask_area = (cur_mask_ids == k).sum().item()
-            original_area = (cur_masks[k] >= 0.5).sum().item()
-            mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
+            original_area = (cur_masks[k] >= self.mask_threshold).sum().item()
+            mask = (cur_mask_ids == k) & (cur_masks[k] >= self.mask_threshold)
             if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
                 if mask_area / original_area < overlap_threshold:
                     continue
