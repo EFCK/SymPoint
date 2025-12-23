@@ -67,10 +67,10 @@ def main():
     has_gt_data = any(has_ground_truth(f) for f in data_list)
     
     if has_gt_data:
-        sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.model.ignore_labels,gpu_num=1)
+        sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.ignore_labels,gpu_num=1)
         instance_eval = InstanceEval(
             num_classes=cfg.model.semantic_classes,
-            ignore_label=cfg.model.ignore_labels,
+            ignore_label=cfg.ignore_labels,
             gpu_num=1,
             min_obj_score=cfg.model.get('test_object_score', 0.1),
             iou_threshold=cfg.model.get('eval_iou_threshold', 0.5)

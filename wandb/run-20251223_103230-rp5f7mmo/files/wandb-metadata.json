@@ -1,0 +1,50 @@
+{
+  "os":  "Linux-6.6.105+-x86_64-with-glibc2.17",
+  "python":  "CPython 3.8.20",
+  "startedAt":  "2025-12-23T10:32:30.624128Z",
+  "args":  [
+    "configs/svg/svg_pointT.yaml",
+    "--dist",
+    "--exp_name",
+    "sympointv1_deneme",
+    "--work_dir",
+    "/temp/work_dir/",
+    "--resume",
+    "/content/drive/MyDrive/My_Computer/sympoint_data/svg/best.pth"
+  ],
+  "program":  "tools/train.py",
+  "codePath":  "tools/train.py",
+  "codePathLocal":  "tools/train.py",
+  "git":  {
+    "remote":  "https://EFCK:@github.com/EFCK/Sympoint.git",
+    "commit":  "9b999c0fd4375f45e08319fcda00489f27e75389"
+  },
+  "email":  "kirbiyike22@itu.edu.tr",
+  "root":  "/content/Sympoint",
+  "host":  "f078637ca459",
+  "executable":  "/root/micromamba/envs/spv1/bin/python3.8",
+  "cpu_count":  4,
+  "cpu_count_logical":  8,
+  "gpu":  "Tesla T4",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "253055008768",
+      "used":  "56314998784"
+    }
+  },
+  "memory":  {
+    "total":  "54750429184"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "Tesla T4",
+      "memoryTotal":  "16106127360",
+      "cudaCores":  2560,
+      "architecture":  "Turing",
+      "uuid":  "GPU-d656db9f-054d-08c6-d6cc-116202b882ee"
+    }
+  ],
+  "cudaVersion":  "12.4",
+  "writerId":  "c9tx2awuebs51fww8fgyaudxid2hya6n"
+}

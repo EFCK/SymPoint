@@ -1,14 +1,14 @@
 # ninja log v7
-1	15547	1766481062126294248	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/grouping/grouping_cuda.o	3282464757fab357
-1	15597	1766481062126294248	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/aggregation/aggregation_cuda.o	774f5e25091a51dc
-2	15974	1766481062127294334	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/interpolation/interpolation_cuda.o	1b9dc1a6175e2108
-2	16318	1766481062127294334	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/knnquery/knnquery_cuda.o	8986134976f6d752
-3	16492	1766481062128294421	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/sampling/sampling_cuda.o	f1198dbbfeab9e1d
-4	16543	1766481062129294508	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/subtraction/subtraction_cuda.o	4b2e48e7e8f4d2f
-3	42768	1766481062128294421	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/pointops_api.o	2b79a8d9f4f810c8
-2	51761	1766481062127294334	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/knnquery/knnquery_cuda_kernel.o	489c7ed9cfff9bef
-2	52293	1766481062127294334	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/interpolation/interpolation_cuda_kernel.o	a70cd35ee119e231
-3	52554	1766481062128294421	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/sampling/sampling_cuda_kernel.o	337964f9d33921c2
-5	52731	1766481062130294594	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/subtraction/subtraction_cuda_kernel.o	850bbef5deb22c86
-1	53837	1766481062126294248	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/aggregation/aggregation_cuda_kernel.o	f515036900f7d269
-1	53987	1766481062126294248	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/grouping/grouping_cuda_kernel.o	28f9d70fe0816d01
+0	16311	1766485509225278052	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/grouping/grouping_cuda.o	3282464757fab357
+4	18102	1766485509229278331	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/sampling/sampling_cuda.o	f1198dbbfeab9e1d
+1	18114	1766485509226278121	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/knnquery/knnquery_cuda.o	8986134976f6d752
+0	18467	1766485509225278052	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/aggregation/aggregation_cuda.o	774f5e25091a51dc
+1	19683	1766485509226278121	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/interpolation/interpolation_cuda.o	1b9dc1a6175e2108
+18102	32262	1766485527326542733	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/subtraction/subtraction_cuda.o	4b2e48e7e8f4d2f
+3	47285	1766485509228278261	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/pointops_api.o	2b79a8d9f4f810c8
+2	53267	1766485509227278191	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/knnquery/knnquery_cuda_kernel.o	e9a52cec51b888e1
+1	53545	1766485509226278121	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/interpolation/interpolation_cuda_kernel.o	736707a1374a885b
+0	53836	1766485509225278052	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/aggregation/aggregation_cuda_kernel.o	db6bc58d2fb4620b
+1	55172	1766485509226278121	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/grouping/grouping_cuda_kernel.o	fab14c3bdf6f46ec
+16312	63809	1766485525537417732	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/sampling/sampling_cuda_kernel.o	cf8489e52a460d23
+18116	64500	1766485527340543711	/content/Sympoint/modules/pointops/build/temp.linux-x86_64-cpython-38/src/subtraction/subtraction_cuda_kernel.o	3b8862bb29eb1c7e

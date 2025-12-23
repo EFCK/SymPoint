@@ -1,0 +1,171 @@
+2025-12-23 10:32:31,597 - INFO - Config:
+model:
+  in_channels: 9
+  semantic_classes: 35
+  ignore_labels: [35, 3, 5, 7, 8, 9, 11, 14, 15, 17, 19, 20, 21, 22, 23]
+  #decoder
+  num_decoders: 3
+  dropout: 0.0
+  pre_norm: False
+  num_heads: 8
+  shared_decoder: True
+  dim_feedforward: 512
+  hidden_dim: 256
+  num_queries: 500
+  gauss_scale: 1.0
+  normalize_pos_enc: False
+  #dn
+  scalar: 1
+  dn_mask_noise_scale: 0.0
+  dn_label_noise_ratio: 0.2
+  #inference
+  test_object_score: 0.05      # Score threshold for filtering predictions (used in model, evaluation, and visualization)
+  overlap_threshold: 0.5
+  mask_threshold: 0.5
+  #evaluation
+  eval_iou_threshold: 0.5
+
+matcher:
+  cost_class: 2.
+  cost_mask: 5.
+  cost_dice: 5.
+  num_points: -1
+
+criterion:
+  num_classes: 35
+  eos_coef: 0.1
+  losses:
+    - "labels"
+    - "masks"
+  ignore_label: -1
+  class_weights: -1
+  num_points: -1
+  contrast:
+    num_classes: 36 # bg+fg
+    stage: "Ua"
+    num_layers: 5
+    ftype: "f_out"
+    dist: "l2"
+    pos: "cnt"
+    contrast_func: "softnn"
+    sample: "label"
+    temperature: 2.0
+    weight: 8.0
+
+data:
+  train:
+    type: 'svg'
+    data_root: '/temp/json/manuel_split_train'
+    repeat: 5
+    split: "train"
+    data_norm: "mean"
+    aug:
+      aug_prob: 0.5
+      hflip: True
+      vflip: True
+
+      rotate:
+        enable: False
+        angle: [-180,180]
+      rotate2: True
+
+      scale:
+        enable: True
+        ratio: [0.5,1.5]
+
+      shift:
+        enable: True
+        scale: [-0.5,0.5]
+
+      cutmix:
+        enable: True
+        queueK: 32
+        relative_shift: [-0.5,0.5]
+
+  test:
+    type: 'svg'
+    data_root: '/temp/json/manuel_split_test'
+    repeat: 1
+    split: "test"
+    data_norm: "mean"
+    aug: False
+
+dataloader:
+  train:
+    batch_size: 1
+    num_workers: 2
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'AdamW'
+  lr: 0.0001
+  weight_decay: 0.0001
+  weight_decay_embed: 0.0
+  decoder_multiplier: 1.0
+  clip_gradients_enabled: True
+  clip_gradients_type: "full_model"
+  clip_gradients_norm_type: 2.0
+  clip_gradients_value: 0.01
+
+scheduler:
+  type: 'step'
+  lr_decay: 0.1
+  lr_decay_epochs: [18,24]
+
+fp16: False
+epochs: 50
+step_epoch: 30
+save_freq: 10
+pretrain: '' # We can load pretrain of ScanNetV2 or train from scratch
+work_dir: ''
+
+2025-12-23 10:32:31,597 - INFO - Distributed: True
+2025-12-23 10:32:31,597 - INFO - Mix precision training: False
+2025-12-23 10:32:31,601 - INFO - Save at: /temp/work_dir/
+2025-12-23 10:32:37,179 - INFO - Total Number of Parameters: 35.06 M
+2025-12-23 10:32:37,179 - INFO - Total Trainable Number of Parameters: 35.06 M
+2025-12-23 10:32:37,326 - INFO - Load train dataset: 93 svg
+2025-12-23 10:32:37,327 - INFO - Load test dataset: 40 svg
+Train samples: 465
+Val samples: 40
+2025-12-23 10:32:37,330 - INFO - Scale LR from 0.0001 (batch size 16) to 6.25e-06 (batch size 1)
+2025-12-23 10:32:37,435 - INFO - Resume from /content/drive/MyDrive/My_Computer/sympoint_data/svg/best.pth
+2025-12-23 10:32:39,983 - INFO - Optimizer state not found in checkpoint. Starting with fresh optimizer state.
+2025-12-23 10:32:39,985 - INFO - Training
+2025-12-23 10:32:41,617 - INFO - Reducer buckets have been rebuilt in this iteration.
+2025-12-23 10:33:22,028 - INFO - Epoch [0/50][50/465]  lr: 6.3e-06, eta: 5:31:37, mem: 3251, data_time: 0.00, iter_time: 0.50, loss_ce: 3.0545, loss_mask: 0.4504, loss_dice: 2.1829, loss_ce_0: 2.4906, loss_mask_0: 0.6240, loss_dice_0: 2.9562, loss_ce_1: 2.7153, loss_mask_1: 0.6632, loss_dice_1: 2.6264, loss_ce_2: 2.6788, loss_mask_2: 0.7406, loss_dice_2: 2.5943, loss_ce_3: 2.8190, loss_mask_3: 0.5769, loss_dice_3: 2.3114, loss_ce_4: 2.9989, loss_mask_4: 0.5084, loss_dice_4: 2.3051, loss_ce_5: 2.8624, loss_mask_5: 0.5191, loss_dice_5: 2.3064, loss_ce_6: 2.5794, loss_mask_6: 0.4874, loss_dice_6: 2.2591, loss_ce_7: 2.4458, loss_mask_7: 0.5288, loss_dice_7: 2.2494, loss_ce_8: 2.9614, loss_mask_8: 0.4510, loss_dice_8: 2.1602, loss_ce_9: 3.0030, loss_mask_9: 0.5012, loss_dice_9: 2.1471, loss_ce_10: 2.7228, loss_mask_10: 0.5119, loss_dice_10: 2.1534, loss_ce_11: 2.8011, loss_mask_11: 0.5216, loss_dice_11: 2.1321, loss: 73.6015
+2025-12-23 10:33:45,787 - INFO - Epoch [0/50][100/465]  lr: 6.3e-06, eta: 4:18:58, mem: 3251, data_time: 0.00, iter_time: 0.57, loss_ce: 2.8201, loss_mask: 0.9543, loss_dice: 3.1746, loss_ce_0: 3.2218, loss_mask_0: 1.2498, loss_dice_0: 3.7928, loss_ce_1: 4.1328, loss_mask_1: 1.4437, loss_dice_1: 3.5813, loss_ce_2: 3.7569, loss_mask_2: 1.4673, loss_dice_2: 3.5587, loss_ce_3: 3.3436, loss_mask_3: 1.3870, loss_dice_3: 3.4654, loss_ce_4: 3.1718, loss_mask_4: 1.0738, loss_dice_4: 3.2315, loss_ce_5: 2.8192, loss_mask_5: 1.0169, loss_dice_5: 3.2654, loss_ce_6: 2.8874, loss_mask_6: 1.0794, loss_dice_6: 3.2656, loss_ce_7: 2.9716, loss_mask_7: 1.0093, loss_dice_7: 3.3146, loss_ce_8: 2.7292, loss_mask_8: 0.9800, loss_dice_8: 3.0802, loss_ce_9: 2.6252, loss_mask_9: 0.9816, loss_dice_9: 3.1401, loss_ce_10: 2.8639, loss_mask_10: 1.0191, loss_dice_10: 3.2044, loss_ce_11: 2.7909, loss_mask_11: 1.0617, loss_dice_11: 3.2117, loss: 98.1446
+2025-12-23 10:34:08,948 - INFO - Epoch [0/50][150/465]  lr: 6.3e-06, eta: 3:52:55, mem: 3251, data_time: 0.00, iter_time: 0.44, loss_ce: 0.5085, loss_mask: 0.8630, loss_dice: 2.2970, loss_ce_0: 1.2636, loss_mask_0: 2.2927, loss_dice_0: 4.0552, loss_ce_1: 0.7599, loss_mask_1: 1.5201, loss_dice_1: 3.7883, loss_ce_2: 0.7699, loss_mask_2: 1.6049, loss_dice_2: 2.9983, loss_ce_3: 0.6624, loss_mask_3: 1.2023, loss_dice_3: 2.8628, loss_ce_4: 0.5492, loss_mask_4: 1.2602, loss_dice_4: 2.8423, loss_ce_5: 0.5735, loss_mask_5: 1.1311, loss_dice_5: 2.8477, loss_ce_6: 0.7061, loss_mask_6: 1.0297, loss_dice_6: 2.6792, loss_ce_7: 0.7386, loss_mask_7: 0.9297, loss_dice_7: 2.5192, loss_ce_8: 0.6142, loss_mask_8: 0.7908, loss_dice_8: 2.5636, loss_ce_9: 0.5725, loss_mask_9: 0.9644, loss_dice_9: 2.7433, loss_ce_10: 0.6681, loss_mask_10: 0.8512, loss_dice_10: 3.0280, loss_ce_11: 0.6744, loss_mask_11: 0.9571, loss_dice_11: 2.3251, loss: 62.0081
+2025-12-23 10:34:33,283 - INFO - Epoch [0/50][200/465]  lr: 6.3e-06, eta: 3:42:00, mem: 3855, data_time: 0.00, iter_time: 0.45, loss_ce: 1.9040, loss_mask: 0.2699, loss_dice: 1.7578, loss_ce_0: 2.0248, loss_mask_0: 0.4018, loss_dice_0: 2.4382, loss_ce_1: 2.1076, loss_mask_1: 0.3992, loss_dice_1: 2.1465, loss_ce_2: 1.8594, loss_mask_2: 0.4112, loss_dice_2: 1.9952, loss_ce_3: 1.8659, loss_mask_3: 0.3786, loss_dice_3: 1.9198, loss_ce_4: 1.8629, loss_mask_4: 0.3248, loss_dice_4: 1.8902, loss_ce_5: 1.8492, loss_mask_5: 0.3117, loss_dice_5: 1.8406, loss_ce_6: 1.8778, loss_mask_6: 0.3322, loss_dice_6: 1.9129, loss_ce_7: 1.7997, loss_mask_7: 0.3128, loss_dice_7: 1.9319, loss_ce_8: 1.9338, loss_mask_8: 0.2735, loss_dice_8: 1.8378, loss_ce_9: 2.0124, loss_mask_9: 0.2534, loss_dice_9: 1.7417, loss_ce_10: 2.0744, loss_mask_10: 0.2561, loss_dice_10: 1.7806, loss_ce_11: 1.8449, loss_mask_11: 0.2995, loss_dice_11: 1.8758, loss: 54.3105
+2025-12-23 10:34:56,999 - INFO - Epoch [0/50][250/465]  lr: 6.3e-06, eta: 3:34:19, mem: 4015, data_time: 0.00, iter_time: 0.48, loss_ce: 2.3896, loss_mask: 0.3346, loss_dice: 1.9891, loss_ce_0: 2.2413, loss_mask_0: 0.5782, loss_dice_0: 2.6901, loss_ce_1: 2.5717, loss_mask_1: 0.6414, loss_dice_1: 2.4155, loss_ce_2: 2.4331, loss_mask_2: 0.5171, loss_dice_2: 2.2555, loss_ce_3: 2.4013, loss_mask_3: 0.4257, loss_dice_3: 2.1271, loss_ce_4: 2.1403, loss_mask_4: 0.3982, loss_dice_4: 2.1300, loss_ce_5: 2.2460, loss_mask_5: 0.4312, loss_dice_5: 2.0626, loss_ce_6: 2.2240, loss_mask_6: 0.3691, loss_dice_6: 2.0123, loss_ce_7: 2.2569, loss_mask_7: 0.3521, loss_dice_7: 1.9750, loss_ce_8: 2.2663, loss_mask_8: 0.3695, loss_dice_8: 2.0243, loss_ce_9: 2.3087, loss_mask_9: 0.3925, loss_dice_9: 2.0746, loss_ce_10: 2.2961, loss_mask_10: 0.3776, loss_dice_10: 2.0712, loss_ce_11: 2.4128, loss_mask_11: 0.3650, loss_dice_11: 1.9901, loss: 63.5575
+2025-12-23 10:35:20,281 - INFO - Epoch [0/50][300/465]  lr: 6.3e-06, eta: 3:28:30, mem: 4015, data_time: 0.00, iter_time: 0.44, loss_ce: 1.1950, loss_mask: 0.4706, loss_dice: 1.8785, loss_ce_0: 1.2339, loss_mask_0: 1.4597, loss_dice_0: 3.6815, loss_ce_1: 1.3516, loss_mask_1: 1.8569, loss_dice_1: 3.7765, loss_ce_2: 1.1173, loss_mask_2: 1.3582, loss_dice_2: 3.1592, loss_ce_3: 1.2744, loss_mask_3: 0.6989, loss_dice_3: 2.0957, loss_ce_4: 0.6739, loss_mask_4: 0.9688, loss_dice_4: 2.9211, loss_ce_5: 1.1781, loss_mask_5: 0.6205, loss_dice_5: 2.3698, loss_ce_6: 1.2144, loss_mask_6: 0.7798, loss_dice_6: 2.6577, loss_ce_7: 1.3502, loss_mask_7: 0.5838, loss_dice_7: 2.2162, loss_ce_8: 1.2981, loss_mask_8: 0.4695, loss_dice_8: 1.8231, loss_ce_9: 1.0954, loss_mask_9: 0.4698, loss_dice_9: 2.0144, loss_ce_10: 1.1700, loss_mask_10: 0.5012, loss_dice_10: 2.2642, loss_ce_11: 1.2241, loss_mask_11: 0.4635, loss_dice_11: 2.2580, loss: 59.1936
+2025-12-23 10:35:43,898 - INFO - Epoch [0/50][350/465]  lr: 6.3e-06, eta: 3:24:37, mem: 4015, data_time: 0.00, iter_time: 0.57, loss_ce: 2.2341, loss_mask: 0.5350, loss_dice: 2.8472, loss_ce_0: 2.1587, loss_mask_0: 1.1190, loss_dice_0: 3.3459, loss_ce_1: 2.0868, loss_mask_1: 0.8299, loss_dice_1: 3.2324, loss_ce_2: 2.5641, loss_mask_2: 0.7970, loss_dice_2: 3.1106, loss_ce_3: 2.1515, loss_mask_3: 0.7273, loss_dice_3: 3.1138, loss_ce_4: 1.9840, loss_mask_4: 0.6698, loss_dice_4: 2.9633, loss_ce_5: 2.0218, loss_mask_5: 0.6035, loss_dice_5: 2.9519, loss_ce_6: 1.9415, loss_mask_6: 0.6448, loss_dice_6: 3.0706, loss_ce_7: 2.2884, loss_mask_7: 0.6284, loss_dice_7: 2.9904, loss_ce_8: 2.1559, loss_mask_8: 0.5921, loss_dice_8: 2.9240, loss_ce_9: 2.1297, loss_mask_9: 0.5194, loss_dice_9: 2.9883, loss_ce_10: 2.1799, loss_mask_10: 0.6276, loss_dice_10: 2.9456, loss_ce_11: 2.2214, loss_mask_11: 0.5876, loss_dice_11: 3.0082, loss: 76.4912
+2025-12-23 10:36:08,258 - INFO - Epoch [0/50][400/465]  lr: 6.3e-06, eta: 3:22:19, mem: 4015, data_time: 0.00, iter_time: 0.45, loss_ce: 2.6633, loss_mask: 0.1547, loss_dice: 1.2666, loss_ce_0: 2.2749, loss_mask_0: 0.2866, loss_dice_0: 1.9015, loss_ce_1: 2.6319, loss_mask_1: 0.2401, loss_dice_1: 1.6095, loss_ce_2: 2.6835, loss_mask_2: 0.2463, loss_dice_2: 1.4305, loss_ce_3: 2.4331, loss_mask_3: 0.2219, loss_dice_3: 1.2846, loss_ce_4: 2.3652, loss_mask_4: 0.1539, loss_dice_4: 1.2146, loss_ce_5: 2.2914, loss_mask_5: 0.1353, loss_dice_5: 1.1556, loss_ce_6: 2.4323, loss_mask_6: 0.1314, loss_dice_6: 1.1663, loss_ce_7: 2.2706, loss_mask_7: 0.1475, loss_dice_7: 1.2012, loss_ce_8: 2.3795, loss_mask_8: 0.1474, loss_dice_8: 1.2532, loss_ce_9: 2.5283, loss_mask_9: 0.1506, loss_dice_9: 1.1546, loss_ce_10: 2.6096, loss_mask_10: 0.1554, loss_dice_10: 1.2292, loss_ce_11: 2.3819, loss_mask_11: 0.1630, loss_dice_11: 1.3677, loss: 51.5148
+2025-12-23 10:36:32,306 - INFO - Epoch [0/50][450/465]  lr: 6.3e-06, eta: 3:20:10, mem: 4015, data_time: 0.00, iter_time: 0.45, loss_ce: 2.1790, loss_mask: 0.2437, loss_dice: 1.6750, loss_ce_0: 1.8024, loss_mask_0: 0.3126, loss_dice_0: 2.2655, loss_ce_1: 1.7074, loss_mask_1: 0.2775, loss_dice_1: 2.2177, loss_ce_2: 1.6634, loss_mask_2: 0.3141, loss_dice_2: 1.9738, loss_ce_3: 1.8935, loss_mask_3: 0.2591, loss_dice_3: 1.7580, loss_ce_4: 2.0377, loss_mask_4: 0.2198, loss_dice_4: 1.6775, loss_ce_5: 1.8752, loss_mask_5: 0.2260, loss_dice_5: 1.6979, loss_ce_6: 2.1210, loss_mask_6: 0.2347, loss_dice_6: 1.5470, loss_ce_7: 2.1091, loss_mask_7: 0.1992, loss_dice_7: 1.5801, loss_ce_8: 2.1011, loss_mask_8: 0.2301, loss_dice_8: 1.5984, loss_ce_9: 2.1968, loss_mask_9: 0.2083, loss_dice_9: 1.5581, loss_ce_10: 2.2273, loss_mask_10: 0.2197, loss_dice_10: 1.5478, loss_ce_11: 2.2720, loss_mask_11: 0.2093, loss_dice_11: 1.5912, loss: 52.0280
+2025-12-23 10:36:40,645 - INFO - Validation
+Traceback (most recent call last):
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/munch/__init__.py", line 103, in __getattr__
+    return object.__getattribute__(self, k)
+AttributeError: 'Munch' object has no attribute 'ignore_labels'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/munch/__init__.py", line 106, in __getattr__
+    return self[k]
+KeyError: 'ignore_labels'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "tools/train.py", line 302, in <module>
+    main()
+  File "tools/train.py", line 286, in main
+    miou, acc, sPQ, sRQ, sSQ = validate(epoch, model, optimizer, val_loader, cfg, logger, writer)
+  File "tools/train.py", line 118, in validate
+    sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.ignore_labels,gpu_num=dist.get_world_size())
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/munch/__init__.py", line 108, in __getattr__
+    raise AttributeError(k)
+AttributeError: ignore_labels
