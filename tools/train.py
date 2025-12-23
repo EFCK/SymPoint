@@ -192,8 +192,8 @@ def main():
         cfg.work_dir = osp.join("./work_dirs", dataset_name, osp.splitext(osp.basename(args.config))[0], args.exp_name)
 
     if is_main_process():
-        wandb.init(project="SymPoint", name=args.exp_name
-        ,config={"dataset": dataset_name, epochs: cfg.epochs, "batch_size": cfg.dataloader.train.batch_size,})
+        wandb.init(project="SymPoint", name=args.exp_name,
+                   config={"dataset": dataset_name, "epochs": cfg.epochs, "batch_size": cfg.dataloader.train.batch_size})
 
     os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
     timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
@@ -284,14 +284,17 @@ def main():
         loss = train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger, writer)
         if scheduler is not None:scheduler.step()
         miou, acc, sPQ, sRQ, sSQ = validate(epoch, model, optimizer, val_loader, cfg, logger, writer)
-        wandb.log({"train/loss": loss,
-                   "val/mIoU": miou,
-                   "val/Acc": acc,
-                   "val/sPQ": sPQ,
-                   "val/sRQ": sRQ,
-                   "val/sSQ": sSQ,}, step=epoch)
+        if is_main_process():
+            wandb.log({"train/loss": loss.item(),
+                       "val/mIoU": miou,
+                       "val/Acc": acc,
+                       "val/sPQ": sPQ,
+                       "val/sRQ": sRQ,
+                       "val/sSQ": sSQ}, step=epoch)
         writer.flush()
 
+    if is_main_process():
+        wandb.finish()
     logger.info(f"Finish!!! Model at: {cfg.work_dir}")
 
 
