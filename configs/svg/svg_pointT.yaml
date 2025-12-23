@@ -17,8 +17,8 @@ model:
   dn_mask_noise_scale: 0.0
   dn_label_noise_ratio: 0.2
   #inference
-  test_object_score: 0.05      # Score threshold for filtering predictions (used in model, evaluation, and visualization)
-  overlap_threshold: 0.5
+  test_object_score: 0.1      # Score threshold for filtering predictions (used in model, evaluation, and visualization)
+  overlap_threshold: 0.8
   mask_threshold: 0.5
   #evaluation
   eval_iou_threshold: 0.5
@@ -98,7 +98,7 @@ dataloader:
 
 optimizer:
   type: 'AdamW'
-  lr: 0.0001
+  lr: 0.00005
   weight_decay: 0.0001
   weight_decay_embed: 0.0
   decoder_multiplier: 1.0
