@@ -68,12 +68,11 @@ def main():
     
     if has_gt_data:
         sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.model.ignore_labels,gpu_num=1)
-        # Use test_object_score for evaluation to match model's inference threshold
         instance_eval = InstanceEval(
             num_classes=cfg.model.semantic_classes,
             ignore_label=cfg.model.ignore_labels,
             gpu_num=1,
-            min_obj_score=cfg.model.get('test_object_score', 0.1),  # Same threshold used in model inference
+            min_obj_score=cfg.model.get('test_object_score', 0.1),
             iou_threshold=cfg.model.get('eval_iou_threshold', 0.5)
         )
     else:

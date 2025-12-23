@@ -78,14 +78,14 @@ class InstanceEval(object):
     def __init__(self, num_classes=35,
                  ignore_label=[35],
                  gpu_num=8,
-                 min_obj_score=0.1,      # Should be set to cfg.test_object_score from config
+                 min_obj_score=0.1,
                  iou_threshold=0.5) -> None:
 
         self.ignore_label = ignore_label
         self._num_classes = num_classes
         self._class_names = [x["name"] for x in SVG_CATEGORIES[:-1]]
         self.gpu_num = gpu_num
-        self.min_obj_score = min_obj_score  # Filters predictions during evaluation (same as test_object_score)
+        self.min_obj_score = min_obj_score
         self.IoU_thres = iou_threshold
 
         self.tp_classes = np.zeros(num_classes)
@@ -108,7 +108,6 @@ class InstanceEval(object):
                 src_label = instance["labels"]
                 src_score = instance["scores"]
                 if src_label in self.ignore_label: continue
-                # Filter predictions using same threshold as model inference (test_object_score)
                 if src_score< self.min_obj_score: continue
                 src_mask = instance["masks"]
                 
