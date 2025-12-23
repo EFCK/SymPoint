@@ -1,12 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
 
-/dataset
-/results
-*.zip
+# Build artifacts
+modules/pointops/build/
+modules/pointops/dist/
+modules/pointops/*.egg-info/
+
+# Dataset
+/dataset/
+/dataset_old/
+
+# Results and outputs
+/results/
+/results_old/
+/work_dirs/
+
+# Weights
 *.pth
-/work_dirs
-/dataset_old
-/results_old
-/svgnet/evaluation/__pycache__
-svgnet/evaluation/__pycache__/point_wise_eval.cpython-38.pyc
-*.pyc
-*.pyc
+*.zip
+
+# Wandb
+wandb/
+
+# Slurm
+slurm-*.out
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
