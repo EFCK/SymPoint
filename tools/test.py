@@ -64,10 +64,10 @@ def main():
     dataloader = build_dataloader(args,val_set, training=False, dist=args.dist, **cfg.dataloader.test)
 
     time_arr = []
-    sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=35,gpu_num=gpu_num)
+    sem_point_eval = PointWiseEval(num_classes=cfg.model.semantic_classes,ignore_label=cfg.ignore_labels,gpu_num=gpu_num)
     instance_eval = InstanceEval(
         num_classes=cfg.model.semantic_classes,
-        ignore_label=35,
+        ignore_label=cfg.ignore_labels,
         gpu_num=gpu_num,
         min_obj_score=cfg.model.get('test_object_score', 0.1), 
         iou_threshold=cfg.model.get('eval_iou_threshold', 0.5)
