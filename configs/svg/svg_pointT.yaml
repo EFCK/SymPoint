@@ -54,7 +54,7 @@ criterion:
 data:
   train:
     type: 'svg'
-    data_root: 'dataset/json/train'
+    data_root: '/temp/json/manuel_split_train'
     repeat: 5
     split: "train"
     data_norm: "mean"
@@ -83,7 +83,7 @@ data:
 
   test:
     type: 'svg'
-    data_root: 'dataset/json/test'
+    data_root: '/temp/json/manuel_split_test'
     repeat: 1
     split: "test"
     data_norm: "mean"

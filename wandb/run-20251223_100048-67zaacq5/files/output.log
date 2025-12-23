@@ -1,0 +1,196 @@
+2025-12-23 10:00:49,883 - INFO - Config:
+model:
+  in_channels: 9
+  semantic_classes: 35
+  ignore_labels: [35, 3, 5, 7, 8, 9, 11, 14, 15, 17, 19, 20, 21, 22, 23]
+  #decoder
+  num_decoders: 3
+  dropout: 0.0
+  pre_norm: False
+  num_heads: 8
+  shared_decoder: True
+  dim_feedforward: 512
+  hidden_dim: 256
+  num_queries: 500
+  gauss_scale: 1.0
+  normalize_pos_enc: False
+  #dn
+  scalar: 1
+  dn_mask_noise_scale: 0.0
+  dn_label_noise_ratio: 0.2
+  #inference
+  test_object_score: 0.05      # Score threshold for filtering predictions (used in model, evaluation, and visualization)
+  overlap_threshold: 0.5
+  mask_threshold: 0.5
+  #evaluation
+  eval_iou_threshold: 0.5
+
+matcher:
+  cost_class: 2.
+  cost_mask: 5.
+  cost_dice: 5.
+  num_points: -1
+
+criterion:
+  num_classes: 35
+  eos_coef: 0.1
+  losses:
+    - "labels"
+    - "masks"
+  ignore_label: -1
+  class_weights: -1
+  num_points: -1
+  contrast:
+    num_classes: 36 # bg+fg
+    stage: "Ua"
+    num_layers: 5
+    ftype: "f_out"
+    dist: "l2"
+    pos: "cnt"
+    contrast_func: "softnn"
+    sample: "label"
+    temperature: 2.0
+    weight: 8.0
+
+data:
+  train:
+    type: 'svg'
+    data_root: '/temp/json/manuel_split_train'
+    repeat: 5
+    split: "train"
+    data_norm: "mean"
+    aug:
+      aug_prob: 0.5
+      hflip: True
+      vflip: True
+
+      rotate:
+        enable: False
+        angle: [-180,180]
+      rotate2: True
+
+      scale:
+        enable: True
+        ratio: [0.5,1.5]
+
+      shift:
+        enable: True
+        scale: [-0.5,0.5]
+
+      cutmix:
+        enable: True
+        queueK: 32
+        relative_shift: [-0.5,0.5]
+
+  test:
+    type: 'svg'
+    data_root: '/temp/json/manuel_split_test'
+    repeat: 1
+    split: "test"
+    data_norm: "mean"
+    aug: False
+
+dataloader:
+  train:
+    batch_size: 1
+    num_workers: 2
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'AdamW'
+  lr: 0.0001
+  weight_decay: 0.0001
+  weight_decay_embed: 0.0
+  decoder_multiplier: 1.0
+  clip_gradients_enabled: True
+  clip_gradients_type: "full_model"
+  clip_gradients_norm_type: 2.0
+  clip_gradients_value: 0.01
+
+scheduler:
+  type: 'step'
+  lr_decay: 0.1
+  lr_decay_epochs: [18,24]
+
+fp16: False
+epochs: 50
+step_epoch: 30
+save_freq: 10
+pretrain: '' # We can load pretrain of ScanNetV2 or train from scratch
+work_dir: ''
+
+2025-12-23 10:00:49,883 - INFO - Distributed: True
+2025-12-23 10:00:49,883 - INFO - Mix precision training: False
+2025-12-23 10:00:49,886 - INFO - Save at: /temp/work_dir/
+2025-12-23 10:00:56,697 - INFO - Total Number of Parameters: 35.06 M
+2025-12-23 10:00:56,698 - INFO - Total Trainable Number of Parameters: 35.06 M
+2025-12-23 10:00:56,861 - INFO - Load train dataset: 93 svg
+2025-12-23 10:00:56,862 - INFO - Load test dataset: 40 svg
+Train samples: 465
+Val samples: 40
+2025-12-23 10:00:56,866 - INFO - Scale LR from 0.0001 (batch size 16) to 6.25e-06 (batch size 1)
+2025-12-23 10:00:56,966 - INFO - Resume from /content/drive/MyDrive/My_Computer/sympoint_data/svg/best.pth
+2025-12-23 10:01:03,060 - INFO - Optimizer state not found in checkpoint. Starting with fresh optimizer state.
+2025-12-23 10:01:03,062 - INFO - Training
+Traceback (most recent call last):
+  File "tools/train.py", line 303, in <module>
+    main()
+  File "tools/train.py", line 285, in main
+    loss = train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger, writer)
+  File "tools/train.py", line 74, in train
+    _,loss, log_vars = model(batch)
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/nn/parallel/distributed.py", line 886, in forward
+    output = self.module(*inputs[0], **kwargs[0])
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/content/Sympoint/svgnet/model/svgnet.py", line 34, in forward
+    return self._forward(coords,feats,offsets,semantic_labels,lengths,return_loss=return_loss)
+  File "/content/Sympoint/svgnet/util/utils.py", line 206, in wrapper
+    return func(*new_args, **new_kwargs)
+  File "/content/Sympoint/svgnet/model/svgnet.py", line 126, in _forward
+    losses = self.criterion(outputs,targets)
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/content/Sympoint/svgnet/model/criterion.py", line 248, in forward
+    indices = self.matcher(aux_outputs, targets)
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/autograd/grad_mode.py", line 28, in decorate_context
+    return func(*args, **kwargs)
+  File "/content/Sympoint/svgnet/model/matcher.py", line 181, in forward
+    return self.memory_efficient_forward(outputs, targets)
+  File "/root/micromamba/envs/spv1/lib/python3.8/site-packages/torch/autograd/grad_mode.py", line 28, in decorate_context
+    return func(*args, **kwargs)
+  File "/content/Sympoint/svgnet/model/matcher.py", line 122, in memory_efficient_forward
+    cost_mask = batch_sigmoid_ce_loss_jit(out_mask, tgt_mask)
+RuntimeError: nvrtc: error: invalid value for --gpu-architecture (-arch)
+
+nvrtc compilation failed:
+
+#define NAN __int_as_float(0x7fffffff)
+#define POS_INFINITY __int_as_float(0x7f800000)
+#define NEG_INFINITY __int_as_float(0xff800000)
+
+
+template<typename T>
+__device__ T maximum(T a, T b) {
+  return isnan(a) ? a : (a > b ? a : b);
+}
+
+template<typename T>
+__device__ T minimum(T a, T b) {
+  return isnan(a) ? a : (a < b ? a : b);
+}
+
+extern "C" __global__
+void fused_neg_add(float* ttargets_1, float* output_1) {
+{
+if ((long long)(threadIdx.x) + 512ll * (long long)(blockIdx.x)<23430ll ? 1 : 0) {
+    float v = __ldg(ttargets_1 + (long long)(threadIdx.x) + 512ll * (long long)(blockIdx.x));
+    output_1[(long long)(threadIdx.x) + 512ll * (long long)(blockIdx.x)] = (0.f - v) + 1.f;
+  }}
+}

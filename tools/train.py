@@ -193,7 +193,7 @@ def main():
 
     if is_main_process():
         wandb.init(project="SymPoint", name=args.exp_name,
-                   config={"dataset": dataset_name, "epochs": cfg.epochs, "batch_size": cfg.dataloader.train.batch_size})
+                   config={"dataset": args.exp_name, "epochs": cfg.epochs, "batch_size": cfg.dataloader.train.batch_size})
 
     os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
     timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())

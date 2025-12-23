@@ -1,0 +1,50 @@
+{
+  "os":  "Linux-6.6.105+-x86_64-with-glibc2.17",
+  "python":  "CPython 3.8.20",
+  "startedAt":  "2025-12-23T10:00:48.635724Z",
+  "args":  [
+    "configs/svg/svg_pointT.yaml",
+    "--dist",
+    "--exp_name",
+    "sympointv1_deneme",
+    "--work_dir",
+    "/temp/work_dir/",
+    "--resume",
+    "/content/drive/MyDrive/My_Computer/sympoint_data/svg/best.pth"
+  ],
+  "program":  "tools/train.py",
+  "codePath":  "tools/train.py",
+  "codePathLocal":  "tools/train.py",
+  "git":  {
+    "remote":  "https://EFCK:@github.com/EFCK/Sympoint.git",
+    "commit":  "11222e342e8ebf806c1d41f87c62679b1559a88b"
+  },
+  "email":  "kirbiyike22@itu.edu.tr",
+  "root":  "/content/Sympoint",
+  "host":  "0bf297a479dc",
+  "executable":  "/root/micromamba/envs/spv1/bin/python3.8",
+  "cpu_count":  6,
+  "cpu_count_logical":  12,
+  "gpu":  "NVIDIA L4",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "253055008768",
+      "used":  "56394801152"
+    }
+  },
+  "memory":  {
+    "total":  "56863338496"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA L4",
+      "memoryTotal":  "24152899584",
+      "cudaCores":  7424,
+      "architecture":  "Ada",
+      "uuid":  "GPU-f93b538c-dd7c-94d0-d208-3c49282effdf"
+    }
+  ],
+  "cudaVersion":  "12.4",
+  "writerId":  "pyqt8b0k4m7443c0i0gmlowhhl7wnz48"
+}
