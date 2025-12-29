@@ -139,7 +139,7 @@ def checkpoint_save(epoch, model, optimizer, work_dir, save_freq=16, best=False)
     epoch = epoch - 1
     f = os.path.join(work_dir, f"epoch_{epoch}.pth")
     if os.path.isfile(f):
-        if not is_multiple(epoch, save_freq) and not is_power2(epoch):
+        if not is_multiple(epoch, save_freq):
             os.remove(f)
 
 
