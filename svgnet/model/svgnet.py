@@ -26,6 +26,65 @@ class SVGNet(nn.Module):
         self.overlap_threshold = cfg.get('overlap_threshold', 0.8)
         self.mask_threshold = cfg.get('mask_threshold', 0.5)
         
+        # Freeze layers based on config
+        self.freeze_level = cfg.get('freeze_level', 3)  # default: train full decoder
+        self.freeze_layers(self.freeze_level)
+    
+    def freeze_layers(self, level):
+        """
+        Freeze model layers based on level.
+        Backbone is ALWAYS frozen.
+        
+        Args:
+            level (int):
+                0 = freeze everything (inference only)
+                1 = train prediction heads only
+                2 = train prediction heads + query embeddings  
+                3 = train full decoder (all decoder components)
+        """
+        # Always freeze backbone
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+        
+        if level == 0:
+            # Freeze everything
+            for param in self.decoder.parameters():
+                param.requires_grad = False
+                
+        elif level == 1:
+            # Train prediction heads only
+            for param in self.decoder.parameters():
+                param.requires_grad = False
+            # Unfreeze prediction heads
+            for param in self.decoder.class_embed_head.parameters():
+                param.requires_grad = True
+            for param in self.decoder.mask_embed_head.parameters():
+                param.requires_grad = True
+            for param in self.decoder.mask_features_head.parameters():
+                param.requires_grad = True
+                
+        elif level == 2:
+            # Train prediction heads + query embeddings
+            for param in self.decoder.parameters():
+                param.requires_grad = False
+            # Unfreeze prediction heads
+            for param in self.decoder.class_embed_head.parameters():
+                param.requires_grad = True
+            for param in self.decoder.mask_embed_head.parameters():
+                param.requires_grad = True
+            for param in self.decoder.mask_features_head.parameters():
+                param.requires_grad = True
+            # Unfreeze query embeddings
+            self.decoder.query_feat.weight.requires_grad = True
+            self.decoder.query_pos.weight.requires_grad = True
+            
+        elif level == 3:
+            # Train full decoder (backbone still frozen)
+            for param in self.decoder.parameters():
+                param.requires_grad = True
+        else:
+            raise ValueError(f"Invalid freeze_level: {level}. Must be 0, 1, 2, or 3.")
+        
     def train(self, mode=True):
         super().train(mode)
         

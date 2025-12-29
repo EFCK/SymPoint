@@ -1,6 +1,14 @@
 model:
   in_channels: 9
   semantic_classes: 35
+  
+  # Freeze level for fine-tuning (backbone is always frozen)
+  # 0 = freeze everything (inference only)
+  # 1 = train prediction heads only (class_embed_head, mask_embed_head, mask_features_head)
+  # 2 = train prediction heads + query embeddings (query_feat, query_pos)
+  # 3 = train full decoder (prediction heads + queries + attention layers)
+  freeze_level: 3
+  
   #decoder
   num_decoders: 3
   dropout: 0.0

@@ -220,7 +220,14 @@ def main():
     model = svgnet(cfg.model, criterion=criterion).cuda()
     if args.sync_bn:
             nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    #logger.info(model)
+    
+    # Log freeze level information
+    freeze_level = cfg.model.get('freeze_level', 3)
+    logger.info(f"Freeze level: {freeze_level}")
+    logger.info(f"  - Backbone: FROZEN")
+    logger.info(f"  - Decoder attention layers: {'FROZEN' if freeze_level < 3 else 'TRAINABLE'}")
+    logger.info(f"  - Query embeddings: {'FROZEN' if freeze_level < 2 else 'TRAINABLE'}")
+    logger.info(f"  - Prediction heads: {'FROZEN' if freeze_level < 1 else 'TRAINABLE'}")
     
     total_params = 0
     trainable_params = 0
