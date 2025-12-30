@@ -311,8 +311,6 @@ def main():
     train_set = build_dataset(cfg.data.train, logger)
     val_set = build_dataset(cfg.data.test, logger)
 
-    print("Train samples:", len(train_set))
-    print("Val samples:", len(val_set))
 
     train_loader = build_dataloader(args,train_set, training=True, dist=args.dist, **cfg.dataloader.train)
     val_loader = build_dataloader(args,val_set, training=False, dist=True, **cfg.dataloader.test)
