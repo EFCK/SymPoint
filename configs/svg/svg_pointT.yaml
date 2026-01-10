@@ -123,7 +123,7 @@ scheduler:
 
 fp16: False
 epochs: 50
-step_epoch: 50
+step_epoch: 30
 save_freq: 20
 pretrain: '' # We can load pretrain of ScanNetV2 or train from scratch
 work_dir: ''
