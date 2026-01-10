@@ -99,7 +99,7 @@ data:
 
 dataloader:
   train:
-    batch_size: 16
+    batch_size: 8
     num_workers: 4
   test:
     batch_size: 1
