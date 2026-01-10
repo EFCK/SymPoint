@@ -122,7 +122,7 @@ def train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger,
                 "train/loss": rolling_meter_dict["loss"].avg if "loss" in rolling_meter_dict else loss.item(),
                 "train/learning_rate": lr,
             }
-            # Add main losses (exclude auxiliary layer losses like loss_ce_0, loss_mask_1, etc.)
+
             main_losses = ["loss_ce", "loss_mask", "loss_dice"]
             for k in main_losses:
                 if k in rolling_meter_dict:
@@ -150,7 +150,7 @@ def train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger,
         wandb.log(epoch_log, step=global_step)
     
     checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq)
-    return loss
+
 
 
 def validate(epoch, model, optimizer, val_loader, cfg, logger, writer, train_loader_len=None):
@@ -231,7 +231,7 @@ def validate(epoch, model, optimizer, val_loader, cfg, logger, writer, train_loa
     # Always log current best_sPQ for chart visualization
     if is_main_process():
         global_step = epoch * train_loader_len if train_loader_len else epoch
-        wandb.log({"val/best_sPQ": best_metric}, step=global_step)
+        wandb.log({"val/best_sPQ": best_metric, "epoch": epoch}, step=global_step)
     
     return miou, acc, sPQ, sRQ, sSQ
 
@@ -373,7 +373,7 @@ def main():
     if args.resume:
         logger.info(f"Resume from {args.resume}")
         start_epoch = load_checkpoint(args.resume, logger, model, optimizer=optimizer)
-        start_epoch = 0 # start from 0 for now
+        start_epoch = 1 # start from 1 for now
     elif cfg.pretrain:
         logger.info(f"Load pretrain from {cfg.pretrain}")
         load_checkpoint(cfg.pretrain, logger, model)
@@ -381,13 +381,15 @@ def main():
     global best_metric
     best_metric = 0
 
-    # if is_main_process():
-    #     validate(0, model, optimizer, val_loader, cfg, logger, writer)
+    # Evaluate fresh model before any training (epoch 0) - only if starting fresh
+    if start_epoch == 1:
+        logger.info("Evaluating fresh model before training (Epoch 0)")
+        validate(0, model, optimizer, val_loader, cfg, logger, writer, train_loader_len=len(train_loader))
 
     # train and val
     logger.info("Training")
     for epoch in range(start_epoch, cfg.epochs + 1):
-        loss = train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger, writer)
+        train(epoch, model, optimizer, scheduler, scaler, train_loader, cfg, logger, writer)
         if scheduler is not None:scheduler.step()
         miou, acc, sPQ, sRQ, sSQ = validate(epoch, model, optimizer, val_loader, cfg, logger, writer, train_loader_len=len(train_loader))
         writer.flush()
