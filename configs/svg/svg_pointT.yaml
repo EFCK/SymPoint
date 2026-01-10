@@ -11,7 +11,7 @@ model:
   
   #decoder
   num_decoders: 3
-  dropout: 0.0
+  dropout: 0.1
   pre_norm: False
   num_heads: 8
   shared_decoder: True
@@ -61,7 +61,7 @@ criterion:
 data:
   train:
     type: 'svg'
-    data_root: '/temp/manuel_split_fpc/json/manuel_split_train'
+    data_root: '/temp/json/manuel_split_fp2_train'
     repeat: 5
     split: "train"
     data_norm: "mean"
@@ -90,7 +90,7 @@ data:
 
   test:
     type: 'svg'
-    data_root: '/temp/manuel_split_fpc/json/manuel_split_test'
+    data_root: '/temp/json/manuel_split_fp2_test'
     repeat: 1
     split: "test"
     data_norm: "mean"
@@ -106,8 +106,8 @@ dataloader:
 
 optimizer:
   type: 'AdamW'
-  lr: 0.0001
-  weight_decay: 0.0001
+  lr: 0.00008
+  weight_decay: 0.000001
   weight_decay_embed: 0.0
   decoder_multiplier: 1.0
   clip_gradients_enabled: True
@@ -121,7 +121,7 @@ scheduler:
   lr_decay_epochs: [18,24]
 
 fp16: False
-epochs: 100
+epochs: 50
 step_epoch: 50
 save_freq: 20
 pretrain: '' # We can load pretrain of ScanNetV2 or train from scratch
