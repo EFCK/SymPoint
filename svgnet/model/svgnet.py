@@ -41,6 +41,8 @@ class SVGNet(nn.Module):
                 1 = train prediction heads only
                 2 = train prediction heads + query embeddings  
                 3 = train full decoder (all decoder components)
+                4 = train decoder + backbone decoder
+                5 - train full model
         """
         # Always freeze backbone
         for param in self.backbone.parameters():
@@ -82,8 +84,32 @@ class SVGNet(nn.Module):
             # Train full decoder (backbone still frozen)
             for param in self.decoder.parameters():
                 param.requires_grad = True
+
+        elif level == 4:
+            # train backbone decoder + full decoder
+            for param in self.decoder.parameters():
+                param.requires_grad = True
+
+            for param in self.backbone.dec1.parameters():
+                param.requires_grad = True
+            for param in self.backbone.dec2.parameters():
+                param.requires_grad = True
+            for param in self.backbone.dec3.parameters():
+                param.requires_grad = True
+            for param in self.backbone.dec4.parameters():
+                param.requires_grad = True
+            for param in self.backbone.dec5.parameters():
+                param.requires_grad = True
+        
+        elif level == 5:
+            # train everything
+            for param in self.backbone.parameters():
+                param.requires_grad = True
+            for param in self.decoder.parameters():
+                param.requires_grad = True
+
         else:
-            raise ValueError(f"Invalid freeze_level: {level}. Must be 0, 1, 2, or 3.")
+            raise ValueError(f"Invalid freeze_level: {level}. Must be between 0 and 5.")
         
     def train(self, mode=True):
         super().train(mode)

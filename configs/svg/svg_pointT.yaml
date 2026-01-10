@@ -7,7 +7,8 @@ model:
   # 1 = train prediction heads only (class_embed_head, mask_embed_head, mask_features_head)
   # 2 = train prediction heads + query embeddings (query_feat, query_pos)
   # 3 = train full decoder (prediction heads + queries + attention layers)
-  freeze_level: 3
+  # 5 = train full model
+  freeze_level: 5
   
   #decoder
   num_decoders: 3
