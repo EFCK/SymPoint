@@ -133,12 +133,23 @@ class SVGNet(nn.Module):
         svg_len = semantic_ids.shape[0]
 
         for (sem_id,ins_id) in keys:
-            if sem_id==35 and ins_id==-1: continue # background
+            # Skip background (sem_id=35 with no instance)
+            if sem_id==35 and ins_id==-1: continue
+            # Skip invalid targets: instanceId present but semanticId is background
+            # This handles cases where SVG elements have instanceId but no semanticId
+            if sem_id==35 and ins_id>=0: continue
+            # Skip invalid targets: thing class (0-29) without instanceId
+            # Thing classes are countable and must have valid instance IDs
+            if sem_id < 30 and ins_id==-1: continue
 
             tensor_mask = torch.zeros(svg_len)
             ind1 = np.where(semantic_ids==sem_id)[0]
             ind2 = np.where(instance_ids==ins_id)[0]
             ind = list(set(ind1).intersection(ind2))
+
+            # Skip targets with fewer than 3 elements (too small to be meaningful)
+            if len(ind) < 3: continue
+
             tensor_mask[ind] = 1
             cls_targets.append(sem_id)
             mask_targets.append(tensor_mask.unsqueeze(1))
