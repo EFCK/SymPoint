@@ -1,4 +1,3 @@
-
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -6,40 +5,41 @@ import torch.nn.functional as F
 
 from ..util import cuda_cast
 from .pointtransformer import Model as PointT
-#from .pointnet2 import Model as PointT
+
+# from .pointnet2 import Model as PointT
 from .decoder import Decoder
 
 import numpy as np
 
+
 class SVGNet(nn.Module):
-    def __init__(
-        self,cfg,criterion=None):
+    def __init__(self, cfg, criterion=None):
         super().__init__()
         self.criterion = criterion
 
         # NOTE backbone
         self.backbone = PointT(cfg)
-        self.decoder = Decoder(cfg,self.backbone.planes)
+        self.decoder = Decoder(cfg, self.backbone.planes)
         self.num_classes = cfg.semantic_classes
         # Unified score threshold used for model inference, evaluation, and visualization
-        self.test_object_score = cfg.get('test_object_score', 0.1)
-        self.overlap_threshold = cfg.get('overlap_threshold', 0.8)
-        self.mask_threshold = cfg.get('mask_threshold', 0.5)
-        
+        self.test_object_score = cfg.get("test_object_score", 0.1)
+        self.overlap_threshold = cfg.get("overlap_threshold", 0.8)
+        self.mask_threshold = cfg.get("mask_threshold", 0.5)
+
         # Freeze layers based on config
-        self.freeze_level = cfg.get('freeze_level', 3)  # default: train full decoder
+        self.freeze_level = cfg.get("freeze_level", 3)  # default: train full decoder
         self.freeze_layers(self.freeze_level)
-    
+
     def freeze_layers(self, level):
         """
         Freeze model layers based on level.
         Backbone is ALWAYS frozen.
-        
+
         Args:
             level (int):
                 0 = freeze everything (inference only)
                 1 = train prediction heads only
-                2 = train prediction heads + query embeddings  
+                2 = train prediction heads + query embeddings
                 3 = train full decoder (all decoder components)
                 4 = train decoder + backbone decoder
                 5 - train full model
@@ -47,12 +47,12 @@ class SVGNet(nn.Module):
         # Always freeze backbone
         for param in self.backbone.parameters():
             param.requires_grad = False
-        
+
         if level == 0:
             # Freeze everything
             for param in self.decoder.parameters():
                 param.requires_grad = False
-                
+
         elif level == 1:
             # Train prediction heads only
             for param in self.decoder.parameters():
@@ -64,7 +64,7 @@ class SVGNet(nn.Module):
                 param.requires_grad = True
             for param in self.decoder.mask_features_head.parameters():
                 param.requires_grad = True
-                
+
         elif level == 2:
             # Train prediction heads + query embeddings
             for param in self.decoder.parameters():
@@ -79,7 +79,7 @@ class SVGNet(nn.Module):
             # Unfreeze query embeddings
             self.decoder.query_feat.weight.requires_grad = True
             self.decoder.query_pos.weight.requires_grad = True
-            
+
         elif level == 3:
             # Train full decoder (backbone still frozen)
             for param in self.decoder.parameters():
@@ -100,7 +100,7 @@ class SVGNet(nn.Module):
                 param.requires_grad = True
             for param in self.backbone.dec5.parameters():
                 param.requires_grad = True
-        
+
         elif level == 5:
             # train everything
             for param in self.backbone.parameters():
@@ -110,135 +110,146 @@ class SVGNet(nn.Module):
 
         else:
             raise ValueError(f"Invalid freeze_level: {level}. Must be between 0 and 5.")
-        
+
     def train(self, mode=True):
         super().train(mode)
-        
-    def forward(self, batch,return_loss=True):
-        coords,feats,semantic_labels,offsets,lengths = batch
-        return self._forward(coords,feats,offsets,semantic_labels,lengths,return_loss=return_loss)
-     
-    def prepare_targets(self,semantic_labels,bg_ind=-1,bg_sem=35):
-        
-        instance_ids = semantic_labels[:,1].cpu().numpy()
-        semantic_ids = semantic_labels[:,0].cpu().numpy()
-        
+
+    def forward(self, batch, return_loss=True):
+        coords, feats, semantic_labels, offsets, lengths = batch
+        return self._forward(
+            coords, feats, offsets, semantic_labels, lengths, return_loss=return_loss
+        )
+
+    def prepare_targets(self, semantic_labels, bg_ind=-1, bg_sem=35):
+        instance_ids = semantic_labels[:, 1].cpu().numpy()
+        semantic_ids = semantic_labels[:, 0].cpu().numpy()
+
         keys = []
-        for sem_id,ins_id in zip(semantic_ids,
-                             instance_ids):
-            if (sem_id,ins_id) not in keys:
-                keys.append((sem_id,ins_id))
-    
-        cls_targets,mask_targets = [], []
+        for sem_id, ins_id in zip(semantic_ids, instance_ids):
+            if (sem_id, ins_id) not in keys:
+                keys.append((sem_id, ins_id))
+
+        cls_targets, mask_targets = [], []
         svg_len = semantic_ids.shape[0]
 
-        for (sem_id,ins_id) in keys:
+        for sem_id, ins_id in keys:
             # Skip background (sem_id=35 with no instance)
-            if sem_id==35 and ins_id==-1: continue
+            if sem_id == 35 and ins_id == -1:
+                continue
+
+            # Changes made by Efe Can Krybyk to filter out invalid targets
+
             # Skip invalid targets: instanceId present but semanticId is background
             # This handles cases where SVG elements have instanceId but no semanticId
-            if sem_id==35 and ins_id>=0: continue
+            if sem_id == 35 and ins_id >= 0:
+                continue
+
             # Skip invalid targets: thing class (0-29) without instanceId
             # Thing classes are countable and must have valid instance IDs
-            if sem_id < 30 and ins_id==-1: continue
+            if sem_id < 30 and ins_id < 0:
+                continue
 
-            tensor_mask = torch.zeros(svg_len)
-            ind1 = np.where(semantic_ids==sem_id)[0]
-            ind2 = np.where(instance_ids==ins_id)[0]
+            # Skip invalid targets: stuff class (30-34) with instanceID
+            # Stuff classes should not have instanceId
+            if sem_id >= 30 and ins_id != -1:
+                continue
+
+            ind1 = np.where(semantic_ids == sem_id)[0]
+            ind2 = np.where(instance_ids == ins_id)[0]
             ind = list(set(ind1).intersection(ind2))
 
-            # Skip targets with fewer than 3 elements (too small to be meaningful)
-            if len(ind) < 3: continue
+            # We have instances less than 3 primitives, remove this condition to allow small instances.
 
+            # Skip targets with fewer than 3 elements (too small to be meaningful)
+            # if len(ind) < 3: continue
+
+            tensor_mask = torch.zeros(svg_len)
             tensor_mask[ind] = 1
             cls_targets.append(sem_id)
             mask_targets.append(tensor_mask.unsqueeze(1))
 
         cls_targets = torch.tensor(cls_targets) if cls_targets else torch.tensor([35])
-        mask_targets = torch.cat(mask_targets,dim=1) if mask_targets else torch.zeros(svg_len,1)
-        
-        
-        return [{
-            "labels": cls_targets.to(semantic_labels.device),
-            "masks": mask_targets.to(semantic_labels.device),
+        mask_targets = (
+            torch.cat(mask_targets, dim=1) if mask_targets else torch.zeros(svg_len, 1)
+        )
 
-        }]
+        return [
+            {
+                "labels": cls_targets.to(semantic_labels.device),
+                "masks": mask_targets.to(semantic_labels.device),
+            }
+        ]
 
     @cuda_cast
     def _forward(
-        self,
-        coords,
-        feats,
-        offsets,
-        semantic_labels,
-        lengths,
-        return_loss=True
+        self, coords, feats, offsets, semantic_labels, lengths, return_loss=True
     ):
-    
-        stage_list={'inputs': {'p_out':coords,"f_out":feats,"offset":offsets},"semantic_labels":semantic_labels[:,0]}
+        stage_list = {
+            "inputs": {"p_out": coords, "f_out": feats, "offset": offsets},
+            "semantic_labels": semantic_labels[:, 0],
+        }
         targets = self.prepare_targets(semantic_labels)
-        stage_list.update({"tgt":targets})
-        
+        stage_list.update({"tgt": targets})
+
         stage_list = self.backbone(stage_list)
         outputs = self.decoder(stage_list)
-        
+
         model_outputs = {}
         if not self.training:
-            semantic_scores=self.semantic_inference(outputs["pred_logits"],outputs["pred_masks"])
-            instances = self.instance_inference(outputs["pred_logits"],outputs["pred_masks"])
-            model_outputs.update(
-                dict(
-                semantic_scores=semantic_scores,
-                ), 
+            semantic_scores = self.semantic_inference(
+                outputs["pred_logits"], outputs["pred_masks"]
             )
-       
+            instances = self.instance_inference(
+                outputs["pred_logits"], outputs["pred_masks"]
+            )
             model_outputs.update(
                 dict(
-                semantic_labels=semantic_labels[:,0],
-                    ), 
-             )
-            model_outputs.update(
-                dict(
-                instances=instances,
+                    semantic_scores=semantic_scores,
                 ),
             )
 
             model_outputs.update(
                 dict(
-                targets=targets[0],
+                    semantic_labels=semantic_labels[:, 0],
                 ),
             )
             model_outputs.update(
                 dict(
-                lengths=lengths,
+                    instances=instances,
                 ),
             )
-         
-        
+
+            model_outputs.update(
+                dict(
+                    targets=targets[0],
+                ),
+            )
+            model_outputs.update(
+                dict(
+                    lengths=lengths,
+                ),
+            )
+
         if not return_loss:
             return model_outputs
         # NOTE cal loss
-        
-        losses = self.criterion(outputs,targets)
-        loss_value,loss_dicts = self.parse_losses(losses)
-        
-        
-        return model_outputs,loss_value,loss_dicts
 
-    
+        losses = self.criterion(outputs, targets)
+        loss_value, loss_dicts = self.parse_losses(losses)
+
+        return model_outputs, loss_value, loss_dicts
+
     def semantic_inference(self, mask_cls, mask_pred):
-        
-        mask_cls = F.softmax(mask_cls, dim=-1)[...,:-1] # Q,C
-        mask_pred = mask_pred.sigmoid() # Q,G
+        mask_cls = F.softmax(mask_cls, dim=-1)[..., :-1]  # Q,C
+        mask_pred = mask_pred.sigmoid()  # Q,G
         semseg = torch.einsum("bqc,bqg->bgc", mask_cls, mask_pred)
         return semseg[0]
 
-    def instance_inference(self,mask_cls,mask_pred,overlap_threshold=None):
-        
+    def instance_inference(self, mask_cls, mask_pred, overlap_threshold=None):
         if overlap_threshold is None:
             overlap_threshold = self.overlap_threshold
-        
-        mask_cls,mask_pred = mask_cls[0],mask_pred[0]
+
+        mask_cls, mask_pred = mask_cls[0], mask_pred[0]
         scores, labels = F.softmax(mask_cls, dim=-1).max(-1)
         mask_pred = mask_pred.sigmoid()
 
@@ -257,11 +268,10 @@ class SVGNet(nn.Module):
         # take argmax
         try:
             cur_mask_ids = cur_prob_masks.argmax(0)
-        except: 
+        except:
             return results
-        
-        for k in range(cur_classes.shape[0]):
 
+        for k in range(cur_classes.shape[0]):
             pred_class = cur_classes[k].item()
             pred_score = cur_scores[k].item()
             mask_area = (cur_mask_ids == k).sum().item()
@@ -271,18 +281,17 @@ class SVGNet(nn.Module):
                 if mask_area / original_area < overlap_threshold:
                     continue
                 current_segment_id += 1
-                #print(pred_class, pred_score)
-                results.append({
-                    "masks": mask.cpu().numpy(),
-                    "labels": pred_class,
-                    "scores": pred_score
-                })
+                # print(pred_class, pred_score)
+                results.append(
+                    {
+                        "masks": mask.cpu().numpy(),
+                        "labels": pred_class,
+                        "scores": pred_score,
+                    }
+                )
 
         return results
-     
 
-
-    
     def parse_losses(self, losses):
         loss = sum(v for v in losses.values())
         losses["loss"] = loss
@@ -292,6 +301,3 @@ class SVGNet(nn.Module):
                 dist.all_reduce(loss_value.div_(dist.get_world_size()))
             losses[loss_name] = loss_value.item()
         return loss, losses
-
-
-

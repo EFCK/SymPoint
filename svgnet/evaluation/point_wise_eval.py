@@ -3,42 +3,41 @@ from svgnet.data.svg import SVG_CATEGORIES
 import torch
 import torch.distributed as dist
 
+
 class PointWiseEval(object):
-    def __init__(self, num_classes=35, ignore_label=[35],gpu_num=1) -> None:
+    def __init__(self, num_classes=35, ignore_label=[35], gpu_num=1) -> None:
         self.ignore_label = ignore_label
         self._num_classes = num_classes
-        self._conf_matrix = np.zeros((self._num_classes + 1, self._num_classes + 1), dtype=np.float32)
+        self._conf_matrix = np.zeros(
+            (self._num_classes + 1, self._num_classes + 1), dtype=np.float32
+        )
         self._b_conf_matrix = np.zeros(
             (self._num_classes + 1, self._num_classes + 1), dtype=np.int64
         )
         self._class_names = [x["name"] for x in SVG_CATEGORIES[:-1]]
         self.gpu_num = gpu_num
-        
+
     def update(self, pred_sem, gt_sem):
-        
         pos_inds = ~np.isin(gt_sem, self.ignore_label)
         pred = pred_sem[pos_inds]
         gt = gt_sem[pos_inds]
 
         self._conf_matrix += np.bincount(
-                (self._num_classes + 1) * pred.reshape(-1) + gt.reshape(-1),
-                minlength=self._conf_matrix.size,
-            ).reshape(self._conf_matrix.shape)
-
-        
+            (self._num_classes + 1) * pred.reshape(-1) + gt.reshape(-1),
+            minlength=self._conf_matrix.size,
+        ).reshape(self._conf_matrix.shape)
 
     def get_eval(self, logger):
-        
-        if self.gpu_num>1:
-            t =  torch.from_numpy(self._conf_matrix).to("cuda")
-            conf_matrix_list = [torch.full_like(t,0) for _ in range(self.gpu_num)]
+        if self.gpu_num > 1:
+            t = torch.from_numpy(self._conf_matrix).to("cuda")
+            conf_matrix_list = [torch.full_like(t, 0) for _ in range(self.gpu_num)]
             dist.barrier()
-            dist.all_gather(conf_matrix_list,t)
-            self._conf_matrix = torch.full_like(t,0)
+            dist.all_gather(conf_matrix_list, t)
+            self._conf_matrix = torch.full_like(t, 0)
             for conf_matrix in conf_matrix_list:
                 self._conf_matrix += conf_matrix
             self._conf_matrix = self._conf_matrix.cpu().numpy()
-        
+
         # mIoU (exclude ignore_label)
         class_ids = np.arange(self._num_classes)
         valid_mask = ~np.isin(class_ids, self.ignore_label)
@@ -68,19 +67,24 @@ class PointWiseEval(object):
         for i, name in enumerate(self._class_names):
             if i in self.ignore_label:
                 continue
-            logger.info('Class_{}  IoU: {:.3f}'.format(name,iou[i]*100))
-        
-        logger.info('mIoU / fwIoU / pACC : {:.3f} / {:.3f} / {:.3f}'.format(miou, fiou, pACC))
-        
+            logger.info("Class_{}  IoU: {:.3f}".format(name, iou[i] * 100))
+
+        logger.info(
+            "mIoU / fwIoU / pACC : {:.3f} / {:.3f} / {:.3f}".format(miou, fiou, pACC)
+        )
+
         return miou, pACC
 
-class InstanceEval(object):
-    def __init__(self, num_classes=35,
-                 ignore_label=[35],
-                 gpu_num=8,
-                 min_obj_score=0.1,
-                 iou_threshold=0.5) -> None:
 
+class InstanceEval(object):
+    def __init__(
+        self,
+        num_classes=35,
+        ignore_label=[35],
+        gpu_num=8,
+        min_obj_score=0.1,
+        iou_threshold=0.5,
+    ) -> None:
         self.ignore_label = ignore_label
         self._num_classes = num_classes
         self._class_names = [x["name"] for x in SVG_CATEGORIES[:-1]]
@@ -93,55 +97,64 @@ class InstanceEval(object):
         self.fp_classes = np.zeros(num_classes)
         self.fn_classes = np.zeros(num_classes)
         self.thing_class = [i for i in range(30)]
-        self.stuff_class = [30,31,32,33,34]
+        self.stuff_class = [30, 31, 32, 33, 34]
 
     def update(self, instances, target, lengths):
-        
-        lengths = np.round( np.log(1 + lengths.cpu().numpy()) , 3)
+        lengths = np.round(np.log(1 + lengths.cpu().numpy()), 3)
         tgt_labels = target["labels"].cpu().numpy().tolist()
-        tgt_masks = target["masks"].transpose(0,1).cpu().numpy()
+        tgt_masks = target["masks"].transpose(0, 1).cpu().numpy()
         for tgt_label, tgt_mask in zip(tgt_labels, tgt_masks):
-            if tgt_label in self.ignore_label: continue
+            if tgt_label in self.ignore_label:
+                continue
 
             flag = False
             for instance in instances:
                 src_label = instance["labels"]
                 src_score = instance["scores"]
-                if src_label in self.ignore_label: continue
-                if src_score< self.min_obj_score: continue
+                if src_label in self.ignore_label:
+                    continue
+                if src_score < self.min_obj_score:
+                    continue
                 src_mask = instance["masks"]
-                
-                interArea = sum(lengths[np.logical_and(src_mask,tgt_mask)])
-                unionArea = sum(lengths[np.logical_or(src_mask,tgt_mask)])
+
+                interArea = sum(lengths[np.logical_and(src_mask, tgt_mask)])
+                unionArea = sum(lengths[np.logical_or(src_mask, tgt_mask)])
                 iou = interArea / (unionArea + 1e-6)
-                if iou>=self.IoU_thres:
+                if iou >= self.IoU_thres:
                     flag = True
-                    if tgt_label==src_label:
+                    if tgt_label == src_label:
                         self.tp_classes[tgt_label] += 1
                         self.tp_classes_values[tgt_label] += iou
                     else:
                         self.fp_classes[src_label] += 1
-            if not flag: self.fn_classes[tgt_label] += 1
-    
-    def get_eval(self, logger):
-    
+            if not flag:
+                self.fn_classes[tgt_label] += 1
 
-        if self.gpu_num>1:
-            _tensor = np.stack([self.tp_classes,
-                               self.tp_classes_values,
-                               self.fp_classes,
-                               self.fn_classes])
+    def get_eval(self, logger):
+        if self.gpu_num > 1:
+            _tensor = np.stack(
+                [
+                    self.tp_classes,
+                    self.tp_classes_values,
+                    self.fp_classes,
+                    self.fn_classes,
+                ]
+            )
             _tensor = torch.from_numpy(_tensor).to("cuda")
-            _tensor_list = [torch.full_like(_tensor,0) for _ in range(self.gpu_num)]
+            _tensor_list = [torch.full_like(_tensor, 0) for _ in range(self.gpu_num)]
             dist.barrier()
-            dist.all_gather(_tensor_list,_tensor)
-            all_tensor = torch.full_like(_tensor,0)
+            dist.all_gather(_tensor_list, _tensor)
+            all_tensor = torch.full_like(_tensor, 0)
             for tensor_ in _tensor_list:
                 all_tensor += tensor_
 
             all_tensor = all_tensor.cpu().numpy()
-            self.tp_classes, self.tp_classes_values, \
-                self.fp_classes, self.fn_classes= all_tensor
+            (
+                self.tp_classes,
+                self.tp_classes_values,
+                self.fp_classes,
+                self.fn_classes,
+            ) = all_tensor
 
         num_classes = int(self.tp_classes.shape[0])
         class_ids = np.arange(num_classes)
@@ -151,13 +164,21 @@ class InstanceEval(object):
         RQ = np.full(num_classes, np.nan, dtype=np.float64)
         SQ = np.full(num_classes, np.nan, dtype=np.float64)
         PQ = np.full(num_classes, np.nan, dtype=np.float64)
-        denom_rq = self.tp_classes + 0.5 * self.fp_classes + 0.5 * self.fn_classes + 1e-6
+        denom_rq = (
+            self.tp_classes + 0.5 * self.fp_classes + 0.5 * self.fn_classes + 1e-6
+        )
         RQ[valid_mask] = self.tp_classes[valid_mask] / denom_rq[valid_mask]
-        SQ[valid_mask] = self.tp_classes_values[valid_mask] / (self.tp_classes[valid_mask] + 1e-6)
+        SQ[valid_mask] = self.tp_classes_values[valid_mask] / (
+            self.tp_classes[valid_mask] + 1e-6
+        )
         PQ[valid_mask] = RQ[valid_mask] * SQ[valid_mask]
-        
+
         # thing (exclude ignore_label)
-        thing_idx = [i for i in self.thing_class if 0 <= i < num_classes and i not in self.ignore_label]
+        thing_idx = [
+            i
+            for i in self.thing_class
+            if 0 <= i < num_classes and i not in self.ignore_label
+        ]
         thing_tp = np.sum(self.tp_classes[thing_idx])
         thing_fp = np.sum(self.fp_classes[thing_idx])
         thing_fn = np.sum(self.fn_classes[thing_idx])
@@ -165,9 +186,13 @@ class InstanceEval(object):
         thing_RQ = thing_tp / (thing_tp + 0.5 * thing_fp + 0.5 * thing_fn + 1e-6)
         thing_SQ = thing_tp_val / (thing_tp + 1e-6)
         thing_PQ = thing_RQ * thing_SQ
-        
+
         # stuff (exclude ignore_label)
-        stuff_idx = [i for i in self.stuff_class if 0 <= i < num_classes and i not in self.ignore_label]
+        stuff_idx = [
+            i
+            for i in self.stuff_class
+            if 0 <= i < num_classes and i not in self.ignore_label
+        ]
         stuff_tp = np.sum(self.tp_classes[stuff_idx])
         stuff_fp = np.sum(self.fp_classes[stuff_idx])
         stuff_fn = np.sum(self.fn_classes[stuff_idx])
@@ -175,7 +200,7 @@ class InstanceEval(object):
         stuff_RQ = stuff_tp / (stuff_tp + 0.5 * stuff_fp + 0.5 * stuff_fn + 1e-6)
         stuff_SQ = stuff_tp_val / (stuff_tp + 1e-6)
         stuff_PQ = stuff_RQ * stuff_SQ
-        
+
         # total (exclude ignore_label)
         total_tp = np.sum(self.tp_classes[valid_mask])
         total_fp = np.sum(self.fp_classes[valid_mask])
@@ -184,13 +209,32 @@ class InstanceEval(object):
         sRQ = total_tp / (total_tp + 0.5 * total_fp + 0.5 * total_fn + 1e-6)
         sSQ = total_tp_val / (total_tp + 1e-6)
         sPQ = sRQ * sSQ
-        
+
         for i, name in enumerate(self._class_names):
             if i in self.ignore_label:
                 continue
-            logger.info('Class_{}  PQ: {:.3f}'.format(name,PQ[i]*100))
+            logger.info("Class_{}  PQ: {:.3f}".format(name, PQ[i] * 100))
 
-        logger.info('PQ / RQ / SQ : {:.3f} / {:.3f} / {:.3f}'.format(sPQ*100, sRQ*100, sSQ*100))
-        logger.info('thing PQ / RQ / SQ : {:.3f} / {:.3f} / {:.3f}'.format(thing_PQ*100, thing_RQ*100, thing_SQ*100))
-        logger.info('stuff PQ / RQ / SQ : {:.3f} / {:.3f} / {:.3f}'.format(stuff_PQ*100, stuff_RQ*100, stuff_SQ*100))
-        return sPQ*100, sRQ*100, sSQ*100
+        logger.info(
+            "PQ / RQ / SQ : {:.3f} / {:.3f} / {:.3f}".format(
+                sPQ * 100, sRQ * 100, sSQ * 100
+            )
+        )
+        logger.info(
+            "thing PQ / RQ / SQ : {:.3f} / {:.3f} / {:.3f}".format(
+                thing_PQ * 100, thing_RQ * 100, thing_SQ * 100
+            )
+        )
+        logger.info(
+            "stuff PQ / RQ / SQ : {:.3f} / {:.3f} / {:.3f}".format(
+                stuff_PQ * 100, stuff_RQ * 100, stuff_SQ * 100
+            )
+        )
+        logger.info(
+            "TP / FP / FN : {} / {} / {}".format(
+                int(sum(self.tp_classes)),
+                int(sum(self.fp_classes)),
+                int(sum(self.fn_classes)),
+            )
+        )
+        return sPQ * 100, sRQ * 100, sSQ * 100

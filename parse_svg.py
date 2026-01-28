@@ -1,29 +1,33 @@
-
-import math,re
-import os,glob,json
+import math, re
+import os, glob, json
 import shutil
 import xml.etree.ElementTree as ET
 from svgpathtools import parse_path
 from collections import defaultdict
 import numpy as np
-#from sklearn.metrics.pairwise import euclidean_distances
+# from sklearn.metrics.pairwise import euclidean_distances
 
 LABEL_NUM = 35
-COMMANDS = ['Line', 'Arc','circle', 'ellipse']
+COMMANDS = ["Line", "Arc", "circle", "ellipse"]
 import mmcv, argparse
 
+
 def parse_args():
-    '''
+    """
     Arguments
-    '''
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--split', type=str, default="test",
-                        help='the split of dataset')
-    parser.add_argument('--data_dir', type=str, default="./dataset/test/test/svg_gt",
-                        help='save the downloaded data')
+    """
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument(
+        "--split", type=str, default="test", help="the split of dataset"
+    )
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default="./dataset/test/test/svg_gt",
+        help="save the downloaded data",
+    )
     args = parser.parse_args()
     return args
-
 
 
 def parse_color_to_rgb(color_str):
@@ -31,70 +35,97 @@ def parse_color_to_rgb(color_str):
     Convert various color formats to RGB tuple.
     Handles: rgb(r,g,b), named colors (black, white, red, etc.), hex colors.
     """
-    if color_str.startswith('rgb'):
+    if color_str.startswith("rgb"):
         # Extract numbers from rgb(r,g,b) format
-        rgb_values = re.findall(r'\d+', color_str)
+        rgb_values = re.findall(r"\d+", color_str)
         if len(rgb_values) >= 3:
             return list(map(int, rgb_values[:3]))
-    
 
     # Named color mapping
     color_map = {
-        'black': [0, 0, 0],
-        'white': [255, 255, 255],
-        'red': [255, 0, 0],
-        'green': [0, 255, 0],
-        'blue': [0, 0, 255],
-        'yellow': [255, 255, 0],
-        'cyan': [0, 255, 255],
-        'magenta': [255, 0, 255],
-        'gray': [128, 128, 128],
-        'grey': [128, 128, 128],
+        "black": [0, 0, 0],
+        "white": [255, 255, 255],
+        "red": [255, 0, 0],
+        "green": [0, 255, 0],
+        "blue": [0, 0, 255],
+        "yellow": [255, 255, 0],
+        "cyan": [0, 255, 255],
+        "magenta": [255, 0, 255],
+        "gray": [128, 128, 128],
+        "grey": [128, 128, 128],
     }
-    
+
     if color_str.lower() in color_map:
         return color_map[color_str.lower()]
-    
+
     # Try to extract any numbers as fallback
-    rgb_values = re.findall(r'\d+', color_str)
+    rgb_values = re.findall(r"\d+", color_str)
     if len(rgb_values) >= 3:
         return list(map(int, rgb_values[:3]))
-    
+
     # Default to black if parsing fails
     return [0, 0, 0]
 
 
-def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements):
+def parse_element(
+    element,
+    ns,
+    layer_id,
+    commands,
+    args,
+    lengths,
+    semanticIds,
+    instanceIds,
+    strokes,
+    layerIds,
+    widths,
+    inst_infos,
+    counts,
+    degenerate_elements,
+):
     """
     Parse individual SVG elements (path, circle, ellipse).
     Handles both elements with and without instanceId/semanticId attributes.
     """
     # Get or set default values
-    semanticId = int(element.attrib.get('semanticId', 0)) - 1 if 'semanticId' in element.attrib else LABEL_NUM
-    instanceId = int(element.attrib.get('instanceId', -1)) if 'instanceId' in element.attrib else -1
-    
+    semanticId = (
+        int(element.attrib.get("semanticId", 0)) - 1
+        if "semanticId" in element.attrib
+        else LABEL_NUM
+    )
+    instanceId = (
+        int(element.attrib.get("instanceId", -1))
+        if "instanceId" in element.attrib
+        else -1
+    )
+
     # Get or default stroke color
-    stroke_color = element.attrib.get('stroke', 'black')
+    stroke_color = element.attrib.get("stroke", "black")
     rgb = parse_color_to_rgb(stroke_color)
     strokes.append(rgb)
-    
+
     # Get or default stroke width
     stroke_width = element.attrib.get("stroke-width", "0.5")
     widths.append(float(stroke_width))
-    
+
     # Parse path elements
-    if element.tag == ns + 'path':
-        
+    if element.tag == ns + "path":
         # decide if its a path or arc
         try:
-            path_repre = parse_path(element.attrib['d'])
+            path_repre = parse_path(element.attrib["d"])
         except Exception as e:
-            raise RuntimeError("Parse path failed! {}, {}".format(element.attrib.get('d', 'N/A'), e))
-        
+            raise RuntimeError(
+                "Parse path failed! {}, {}".format(element.attrib.get("d", "N/A"), e)
+            )
+
         path_type = path_repre[0].__class__.__name__
 
         # get the original type if exists (for flattining purpose)
-        original_type = element.attrib.get("originalType",None) if "originalType" in element.attrib else None
+        original_type = (
+            element.attrib.get("originalType", None)
+            if "originalType" in element.attrib
+            else None
+        )
         if original_type is not None:
             if original_type == "segment":
                 path_type = "Line"
@@ -104,31 +135,30 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
                 path_type = "circle"
             elif original_type == "ellipse":
                 path_type = "ellipse"
-        
 
         # detect and skip degenerate paths
         length = path_repre.length()
         if length < 1e-10:
-            counts['c2'] += 1
+            counts["c2"] += 1
             degenerate_elements.append(element)
             return counts
 
         commands.append(COMMANDS.index(path_type))
         lengths.append(length)
         layerIds.append(layer_id)
-        
+
         semanticIds.append(semanticId)
         instanceIds.append(instanceId)
-        
-        inds = [0, 1/3, 2/3, 1.0]
+
+        inds = [0, 1 / 3, 2 / 3, 1.0]
         arg = []
 
         # Handle degenerate paths (zero-length) by checking path length first
-        try:        
+        try:
             # Normal path - sample points
             for ind in inds:
                 point = path_repre.point(ind)
-                counts['c1'] += 1
+                counts["c1"] += 1
                 arg.extend([point.real, point.imag])
 
         except (RuntimeError, ValueError) as e:
@@ -137,62 +167,62 @@ def parse_element(element, ns, layer_id, commands, args, lengths, semanticIds, i
                 start_point = path_repre[0].start
                 for _ in inds:
                     arg.extend([start_point.real, start_point.imag])
-                counts['e1'] += 1
+                counts["e1"] += 1
             except (AttributeError, IndexError):
                 # Last resort: use origin
                 for _ in inds:
                     arg.extend([0.0, 0.0])
-                counts['e2'] += 1
+                counts["e2"] += 1
         args.append(arg)
         inst_infos[(instanceId, semanticId)].extend(arg)
-    
+
     # Parse circle elements
-    elif element.tag == ns + 'circle':
-        cx = float(element.attrib['cx'])
-        cy = float(element.attrib['cy'])
-        r = float(element.attrib['r'])
+    elif element.tag == ns + "circle":
+        cx = float(element.attrib["cx"])
+        cy = float(element.attrib["cy"])
+        r = float(element.attrib["r"])
         circle_len = 2 * math.pi * r
         lengths.append(circle_len)
         semanticIds.append(semanticId)
         instanceIds.append(instanceId)
         commands.append(COMMANDS.index("circle"))
         layerIds.append(layer_id)
-        
-        thetas = [0, math.pi/2, math.pi, 3 * math.pi/2]
+
+        thetas = [0, math.pi / 2, math.pi, 3 * math.pi / 2]
         arg = []
         for theta in thetas:
             x, y = cx + r * math.cos(theta), cy + r * math.sin(theta)
             arg.extend([x, y])
         args.append(arg)
         inst_infos[(instanceId, semanticId)].extend(arg)
-    
+
     # Parse ellipse elements
-    elif element.tag == ns + 'ellipse':
-        cx = float(element.attrib['cx'])
-        cy = float(element.attrib['cy'])
-        rx = float(element.attrib['rx'])
-        ry = float(element.attrib['ry'])
-        
+    elif element.tag == ns + "ellipse":
+        cx = float(element.attrib["cx"])
+        cy = float(element.attrib["cy"])
+        rx = float(element.attrib["rx"])
+        ry = float(element.attrib["ry"])
+
         if rx > ry:
             a, b = rx, ry
         else:
             a, b = ry, rx
-        
+
         ellipse_len = 2 * math.pi * b + 4 * (a - b)
         lengths.append(ellipse_len)
         commands.append(COMMANDS.index("ellipse"))
         semanticIds.append(semanticId)
         instanceIds.append(instanceId)
         layerIds.append(layer_id)
-        
-        thetas = [0, math.pi/2, math.pi, 3 * math.pi/2]
+
+        thetas = [0, math.pi / 2, math.pi, 3 * math.pi / 2]
         arg = []
         for theta in thetas:
             x, y = cx + a * math.cos(theta), cy + b * math.sin(theta)
             arg.extend([x, y])
         args.append(arg)
         inst_infos[(instanceId, semanticId)].extend(arg)
-    
+
     return counts
 
 
@@ -200,8 +230,10 @@ def parse_svg(svg_file):
     tree = ET.parse(svg_file)
     root = tree.getroot()
     ns = root.tag[:-3]
-    minx, miny, width, height = [int(float(x)) for x in root.attrib['viewBox'].split(' ')]
-    
+    minx, miny, width, height = [
+        int(float(x)) for x in root.attrib["viewBox"].split(" ")
+    ]
+
     commands = []
     args = []  # (x1,y1,x2,y2,x3,y3,x4,y4) 4points
     lengths = []
@@ -211,92 +243,172 @@ def parse_svg(svg_file):
     layerIds = []
     widths = []
     inst_infos = defaultdict(list)
-    counts = {'c1': 0, 'c2': 0, 'e1': 0, 'e2': 0}
+    counts = {"c1": 0, "c2": 0, "e1": 0, "e2": 0}
     degenerate_elements = []
-    
+
     # Check if SVG has <g> tags
-    groups = list(root.iter(ns + 'g'))
+    groups = list(root.iter(ns + "g"))
 
     # Original format: paths are inside <g> tags
     if len(groups) > 0:
         id = 0
-        for g in root.iter(ns + 'g'):
+        for g in root.iter(ns + "g"):
             id += 1
             # path
-            for path in g.iter(ns + 'path'):
-                counts = parse_element(path, ns, id, commands, args, lengths, semanticIds, 
-                             instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
-            
+            for path in g.iter(ns + "path"):
+                counts = parse_element(
+                    path,
+                    ns,
+                    id,
+                    commands,
+                    args,
+                    lengths,
+                    semanticIds,
+                    instanceIds,
+                    strokes,
+                    layerIds,
+                    widths,
+                    inst_infos,
+                    counts,
+                    degenerate_elements,
+                )
+
             # circle
-            for circle in g.iter(ns + 'circle'):
-                counts = parse_element(circle, ns, id, commands, args, lengths, semanticIds, 
-                             instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
-            
+            for circle in g.iter(ns + "circle"):
+                counts = parse_element(
+                    circle,
+                    ns,
+                    id,
+                    commands,
+                    args,
+                    lengths,
+                    semanticIds,
+                    instanceIds,
+                    strokes,
+                    layerIds,
+                    widths,
+                    inst_infos,
+                    counts,
+                    degenerate_elements,
+                )
+
             # ellipse
-            for ellipse in g.iter(ns + 'ellipse'):
-                counts = parse_element(ellipse, ns, id, commands, args, lengths, semanticIds, 
-                             instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
+            for ellipse in g.iter(ns + "ellipse"):
+                counts = parse_element(
+                    ellipse,
+                    ns,
+                    id,
+                    commands,
+                    args,
+                    lengths,
+                    semanticIds,
+                    instanceIds,
+                    strokes,
+                    layerIds,
+                    widths,
+                    inst_infos,
+                    counts,
+                    degenerate_elements,
+                )
 
     # paths are directly under root (no <g> tags)
     else:
         # To maintain consistent ordering, collect all elements with their document order
         id = 1
         all_elements = []
-        
+
         # Collect all drawable elements with their position in the document
         for i, child in enumerate(root):
-            if child.tag in [ns + 'path', ns + 'circle', ns + 'ellipse']:
+            if child.tag in [ns + "path", ns + "circle", ns + "ellipse"]:
                 all_elements.append((i, child))
-        
+
         # Process in document order (maintains spatial coherence like g-tag version)
         for _, element in all_elements:
-            counts = parse_element(element, ns, id, commands, args, lengths, semanticIds, 
-                         instanceIds, strokes, layerIds, widths, inst_infos, counts, degenerate_elements)
+            counts = parse_element(
+                element,
+                ns,
+                id,
+                commands,
+                args,
+                lengths,
+                semanticIds,
+                instanceIds,
+                strokes,
+                layerIds,
+                widths,
+                inst_infos,
+                counts,
+                degenerate_elements,
+            )
 
     # this approach is not good, because it will break the spatial coherence
     # else:
     #     id = 1
     #     # Parse all path elements directly from root
     #     for path in root.iter(ns + 'path'):
-    #         parse_element(path, ns, id, commands, args, lengths, semanticIds, 
+    #         parse_element(path, ns, id, commands, args, lengths, semanticIds,
     #                      instanceIds, strokes, layerIds, widths, inst_infos)
 
     #     # Parse all circle elements directly from root
     #     for circle in root.iter(ns + 'circle'):
-    #         parse_element(circle, ns, id, commands, args, lengths, semanticIds, 
+    #         parse_element(circle, ns, id, commands, args, lengths, semanticIds,
     #                      instanceIds, strokes, layerIds, widths, inst_infos)
 
     #     # Parse all ellipse elements directly from root
     #     for ellipse in root.iter(ns + 'ellipse'):
-    #         parse_element(ellipse, ns, id, commands, args, lengths, semanticIds, 
+    #         parse_element(ellipse, ns, id, commands, args, lengths, semanticIds,
     #                      instanceIds, strokes, layerIds, widths, inst_infos)
-    
-    print(f"normal path: {counts['c1']}, degenerate path: {counts['c2']}, error1: {counts['e1']}, 0 used: {counts['e2']}")
-    
+
+    print(
+        f"normal path: {counts['c1']}, degenerate path: {counts['c2']}, error1: {counts['e1']}, 0 used: {counts['e2']}"
+    )
+
     if len(degenerate_elements) > 0:
         remove_svg_elements(root, degenerate_elements)
-    
+
     # Validate results
     if len(args) == 0:
         # Empty SVG - return minimal structure
-        return {
-            "commands": [],
-            "args": [],
-            "lengths": [],
-            "semanticIds": [],
-            "instanceIds": [],
-            "width": width,
-            "height": height,
-            "obj_cts": [],
-            "boxes": [],
-            "rgb": [],
-            "layerIds": [],
-            "widths": []
-        }, tree
-    
-    assert len(args) == len(lengths), 'error'
-    assert len(semanticIds) == len(instanceIds), 'error'
-    
+        return (
+            {
+                "commands": [],
+                "args": [],
+                "lengths": [],
+                "semanticIds": [],
+                "instanceIds": [],
+                "width": width,
+                "height": height,
+                "obj_cts": [],
+                "boxes": [],
+                "rgb": [],
+                "layerIds": [],
+                "widths": [],
+            },
+            tree,
+            [],
+        )
+
+    assert len(args) == len(lengths), "error"
+    assert len(semanticIds) == len(instanceIds), "error"
+
+    # Validate labels and collect invalid ones
+    # semanticIds stored as (SVG_value - 1): Thing=0-29, Stuff=30-34, Background=35
+    invalid_labels = []
+    for prim_idx, (sem_id, ins_id) in enumerate(zip(semanticIds, instanceIds)):
+        svg_sem_id = sem_id + 1 if sem_id < 35 else "none"
+        if sem_id == 35 and ins_id >= 0:
+            invalid_labels.append(
+                (prim_idx, svg_sem_id, ins_id, "background with instanceId")
+            )
+        elif sem_id < 30 and ins_id == -1:
+            invalid_labels.append(
+                (prim_idx, svg_sem_id, ins_id, "thing class without instanceId")
+            )
+        elif sem_id >= 30 and sem_id < 35 and ins_id != -1:
+            invalid_labels.append(
+                (prim_idx, svg_sem_id, ins_id, "stuff class with instanceId")
+            )
+
     obj_cts = []
     obj_boxes = []
     for (inst_id, sem_id), coords in inst_infos.items():
@@ -305,11 +417,11 @@ def parse_svg(svg_file):
         coords = np.array(coords).reshape(-1, 2)
         x1, y1 = np.min(coords[:, 0]), np.min(coords[:, 1])
         x2, y2 = np.max(coords[:, 0]), np.max(coords[:, 1])
-        obj_cts.append([(x1+x2)/2, (y1+y2)/2, 0, inst_id])
+        obj_cts.append([(x1 + x2) / 2, (y1 + y2) / 2, 0, inst_id])
         obj_boxes.append([x1, y1, x2, y2, sem_id])
-    
+
     coords = np.array(args).reshape(-1, 4, 2)
-    
+
     json_dicts = {
         "commands": commands,
         "args": args,
@@ -322,9 +434,10 @@ def parse_svg(svg_file):
         "boxes": obj_boxes,
         "rgb": strokes,
         "layerIds": layerIds,
-        "widths": widths
+        "widths": widths,
     }
-    return json_dicts, tree
+    return json_dicts, tree, invalid_labels
+
 
 def remove_svg_elements(root, elements):
     """
@@ -334,52 +447,82 @@ def remove_svg_elements(root, elements):
 
     if not elements:
         return
-    
+
     parent_map = {child: parent for parent in root.iter() for child in parent}
     for element in elements:
         parent = parent_map.get(element)
         if parent is not None:
             parent.remove(element)
             remove_counter += 1
-    
+
     print(f"Removed {remove_counter} degenerate elements from SVG.")
 
 
-def save_json(json_dicts,out_json):
-    json.dump(json_dicts, open(out_json, 'w'), indent=4)
-    
+def save_json(json_dicts, out_json):
+    json.dump(json_dicts, open(out_json, "w"), indent=4)
+
+
 def process(svg_file):
-    
-    json_dicts, tree = parse_svg(svg_file)
-    filename = svg_file.split('/')[-1].replace('.svg','.json').replace(" ","_")
-    out_json = os.path.join(save_dir,filename)
-    save_json(json_dicts,out_json)
+    json_dicts, tree, invalid_labels = parse_svg(svg_file)
+    filename = svg_file.split("/")[-1].replace(".svg", ".json").replace(" ", "_")
+    out_json = os.path.join(save_dir, filename)
+    save_json(json_dicts, out_json)
 
     # save the modified svg file
-    svg_filename = svg_file.split("/")[-1].replace(" ","_")
+    svg_filename = svg_file.split("/")[-1].replace(" ", "_")
     svg_out_path = os.path.join(svg_save_dir, svg_filename)
-    tree.write(svg_out_path, encoding='utf-8', xml_declaration=True)
+    tree.write(svg_out_path, encoding="utf-8", xml_declaration=True)
+
+    # Return invalid labels with filename for collection
+    if invalid_labels:
+        return (svg_file, invalid_labels)
+    return None
 
 
-if __name__=="__main__":
-    
+if __name__ == "__main__":
     args = parse_args()
     data_dir = args.data_dir
-    svg_paths = sorted(glob.glob(os.path.join(data_dir,'*.svg')))
+    svg_paths = sorted(glob.glob(os.path.join(data_dir, "*.svg")))
 
-    save_dir = os.path.join("./dataset/json/",args.split )
-    svg_save_dir = os.path.join("./dataset/svg/",args.split)
-    os.makedirs(save_dir,exist_ok=True)
-    os.makedirs(svg_save_dir,exist_ok=True)
+    save_dir = os.path.join("./dataset/json/", args.split)
+    svg_save_dir = os.path.join("./dataset/svg/", args.split)
+    log_dir = os.path.join("./dataset/logs/", args.split)
+    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(svg_save_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
 
-    mmcv.track_parallel_progress(process,svg_paths,64)
+    results = mmcv.track_parallel_progress(process, svg_paths, 64)
 
-
-    
-
-
-    
-            
-            
-            
-
+    # Collect and log all invalid labels
+    all_invalid = [r for r in results if r is not None]
+    log_file = os.path.join(log_dir, "invalid_labels.log")
+    with open(log_file, "w") as f:
+        f.write("=" * 60 + "\n")
+        f.write("INVALID LABELS REPORT\n")
+        f.write("=" * 60 + "\n")
+        f.write(f"Data directory: {data_dir}\n")
+        f.write(f"Split: {args.split}\n")
+        f.write(f"Total files processed: {len(svg_paths)}\n")
+        f.write("=" * 60 + "\n\n")
+        if all_invalid:
+            total_invalid = 0
+            for svg_file, invalid_labels in all_invalid:
+                f.write(f"[{svg_file}]\n")
+                for prim_idx, svg_sem_id, ins_id, reason in invalid_labels:
+                    f.write(
+                        f"  primitive {prim_idx}: semanticId={svg_sem_id}, instanceId={ins_id} ({reason})\n"
+                    )
+                    total_invalid += 1
+                f.write("\n")
+            f.write("-" * 60 + "\n")
+            f.write(
+                f"Total: {len(all_invalid)} files with {total_invalid} invalid labels\n"
+            )
+            f.write("-" * 60 + "\n")
+            print(
+                f"\n[WARNING] Found {total_invalid} invalid labels in {len(all_invalid)} files."
+            )
+            print(f"See details in: {log_file}")
+        else:
+            f.write("No invalid labels found.\n")
+            print("\nNo invalid labels found.")
